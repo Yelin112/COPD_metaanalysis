@@ -1,0 +1,17 @@
+# 数据文件（体积大，不进入版本控制）
+data/COPD/raw/
+data/IPF/raw/
+data/*/processed/
+
+# 结果文件
+results/
+
+# Python
+__pycache__/
+*.pyc
+.snakemake/
+
+# R
+*.Rhistory
+*.RData
+.Rproj.user/

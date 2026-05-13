@@ -1,0 +1,24 @@
+# ================================================================
+# 数据库路径配置（跨所有研究共享，与疾病无关）
+# 修改这里的路径指向你本地安装的数据库目录
+# ================================================================
+
+metacyc:
+  reactions_file: "/database/metacyc/22.6/data/reactions.tab"
+  compounds_file: "/database/metacyc/22.6/data/compounds.dat"
+  version: "22.6"
+
+stitch:
+  chemical_sources:     "/database/stitch/v5.0/chemical.sources.v5.0.tsv"
+  # {taxid} 会被 study_config.yaml 中的 host_species_id 自动替换
+  protein_chemical_links: "/database/stitch/v5.0/{taxid}.protein_chemical.links.detailed.v5.0.tsv"
+  actions:              "/database/stitch/v5.0/{taxid}.actions.v5.0.tsv"
+  version: "5.0"
+
+probe_mappings:
+  # 微阵列探针-基因映射文件目录，文件命名规范：{platform}_mapping.txt
+  # 例如：GPL96_mapping.txt, GPL570_mapping.txt, GPL14550_mapping.txt
+  base_dir: "/database/geo/platform_mappings"
+
+gene_info:
+  human: "/database/ncbi/Homo_sapiens.gene_info.gz"
