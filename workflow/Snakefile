@@ -1,0 +1,73 @@
+"""
+多组学荟萃分析主工作流
+使用方法：
+  snakemake --configfile config/COPD/study_config.yaml \
+            --config dbconfig=config/databases.yaml \
+            --cores 8 --use-conda
+"""
+
+import os
+
+# 加载配置
+configfile: "config/databases.yaml"
+
+STUDY      = config["study"]["name"]
+OUT        = config["output"]["base_dir"]
+HOST_TYPE  = config["host_omics"]["type"]
+META_TYPE  = config["meta_omics"]["type"]
+BRIDGE     = config["bridge"]["type"]
+
+DATASETS_HOST = [d["id"] for d in config["host_omics"]["datasets"]]
+DATASETS_META = [d["id"] for d in config["meta_omics"]["datasets"]]
+
+# ── 动态加载宿主组学规则 ──────────────────────────────────────────
+if HOST_TYPE == "microarray":
+    include: "rules/host_microarray.smk"
+elif HOST_TYPE == "rnaseq":
+    include: "rules/host_rnaseq.smk"
+elif HOST_TYPE == "proteomics":
+    include: "rules/host_proteomics.smk"
+elif HOST_TYPE == "methylation":
+    include: "rules/host_methylation.smk"
+else:
+    raise ValueError(f"未知 host_omics.type: {HOST_TYPE}")
+
+# ── 动态加载微生物侧规则 ──────────────────────────────────────────
+if META_TYPE == "metagenomics":
+    include: "rules/meta_metagenomics.smk"
+elif META_TYPE == "metatranscriptomics":
+    include: "rules/meta_metatranscriptomics.smk"
+elif META_TYPE == "metabolomics":
+    include: "rules/meta_metabolomics.smk"
+else:
+    raise ValueError(f"未知 meta_omics.type: {META_TYPE}")
+
+# ── 动态加载桥接规则 ──────────────────────────────────────────────
+if BRIDGE == "metacyc_stitch":
+    include: "rules/bridge_metacyc_stitch.smk"
+elif BRIDGE == "direct_metabolomics":
+    include: "rules/bridge_metabolomics_direct.smk"
+else:
+    raise ValueError(f"未知 bridge.type: {BRIDGE}")
+
+# ── 公共规则（所有组学类型都需要）────────────────────────────────
+include: "rules/metaanalysis.smk"
+include: "rules/integration.smk"
+include: "rules/sensitivity.smk"
+
+
+# ── 目标文件 ──────────────────────────────────────────────────────
+def get_targets():
+    targets = [
+        f"{OUT}/host_metaanalysis/metaanalysis_results.tsv",
+        f"{OUT}/meta_metaanalysis/metaanalysis_results.tsv",
+        f"{OUT}/integration/EPCS_scores.tsv",
+    ]
+    if config["sensitivity"]["logo_analysis"]["enabled"]:
+        targets.append(f"{OUT}/sensitivity/LOGO_summary.tsv")
+    return targets
+
+
+rule all:
+    input:
+        get_targets()

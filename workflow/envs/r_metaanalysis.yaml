@@ -1,0 +1,11 @@
+name: multiomics_r
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-base=4.3
+  - bioconductor-sva       # ComBat 批次校正
+  - bioconductor-metade    # 随机效应荟萃分析
+  - r-bnstruct             # KNN 缺失值填补
+  - r-ggplot2

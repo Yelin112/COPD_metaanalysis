@@ -1,0 +1,228 @@
+# ================================================================
+# 研究配置文件 — COPD 多组学荟萃分析
+# 论文：Wang et al. "Multi-omic meta-analysis identifies functional
+#       signatures of airway microbiome in COPD"
+# ================================================================
+
+study:
+  name: "COPD"
+  description: "Multi-omic meta-analysis of airway microbiome in COPD"
+  disease_label: "COPD"     # 需与各数据集 metadata 中的表型列值完全匹配
+  control_label: "Control"
+
+# ----------------------------------------------------------------
+# 宿主组学配置
+# 换组学类型：将 type 改为 rnaseq / proteomics / methylation
+# 并在 datasets 中补充对应格式的字段（详见其他 study_config 示例）
+# ----------------------------------------------------------------
+host_omics:
+  type: "microarray"
+
+  datasets:
+    - id: "GSE103174"
+      platform: "GPL570"        # ⚠️ 请核实后填写正确平台号
+      batch: 1
+      log2_transform: false
+      metadata_file: "data/COPD/raw/host/GSE103174_metadata.txt"
+      matrix_file:   "data/COPD/raw/host/GSE103174_series_matrix.txt"
+
+    - id: "GSE106986"
+      platform: "GPL570"
+      batch: 2
+      log2_transform: false
+      metadata_file: "data/COPD/raw/host/GSE106986_metadata.txt"
+      matrix_file:   "data/COPD/raw/host/GSE106986_series_matrix.txt"
+
+    - id: "GSE112260"
+      platform: "GPL570"
+      batch: 3
+      log2_transform: false
+      metadata_file: "data/COPD/raw/host/GSE112260_metadata.txt"
+      matrix_file:   "data/COPD/raw/host/GSE112260_series_matrix.txt"
+
+    - id: "GSE11784"
+      platform: "GPL96"
+      batch: 4
+      log2_transform: false
+      metadata_file: "data/COPD/raw/host/GSE11784_metadata.txt"
+      matrix_file:   "data/COPD/raw/host/GSE11784_series_matrix.txt"
+
+    - id: "GSE119040"
+      platform: "GPL570"
+      batch: 5
+      log2_transform: false
+      metadata_file: "data/COPD/raw/host/GSE119040_metadata.txt"
+      matrix_file:   "data/COPD/raw/host/GSE119040_series_matrix.txt"
+
+    - id: "GSE11906"
+      platform: "GPL96"
+      batch: 6
+      log2_transform: false
+      metadata_file: "data/COPD/raw/host/GSE11906_metadata.txt"
+      matrix_file:   "data/COPD/raw/host/GSE11906_series_matrix.txt"
+
+    - id: "GSE12472"
+      platform: "GPL96"
+      batch: 7
+      log2_transform: false
+      metadata_file: "data/COPD/raw/host/GSE12472_metadata.txt"
+      matrix_file:   "data/COPD/raw/host/GSE12472_series_matrix.txt"
+
+    - id: "GSE13896"
+      platform: "GPL570"
+      batch: 8
+      log2_transform: false
+      metadata_file: "data/COPD/raw/host/GSE13896_metadata.txt"
+      matrix_file:   "data/COPD/raw/host/GSE13896_series_matrix.txt"
+
+    - id: "GSE16972"
+      platform: "GPL96"
+      batch: 9
+      log2_transform: false
+      metadata_file: "data/COPD/raw/host/GSE16972_metadata.txt"
+      matrix_file:   "data/COPD/raw/host/GSE16972_series_matrix.txt"
+
+    - id: "GSE37147"
+      platform: "GPL14550"      # Agilent 4×44K
+      batch: 10
+      log2_transform: true      # Agilent 数据通常需要 log2 变换
+      metadata_file: "data/COPD/raw/host/GSE37147_metadata.txt"
+      matrix_file:   "data/COPD/raw/host/GSE37147_series_matrix.txt"
+
+    - id: "GSE37768"
+      platform: "GPL6244"       # Affymetrix HuGene-1_0-st
+      batch: 11
+      log2_transform: false
+      metadata_file: "data/COPD/raw/host/GSE37768_metadata.txt"
+      matrix_file:   "data/COPD/raw/host/GSE37768_series_matrix.txt"
+
+    - id: "GSE38974"
+      platform: "GPL570"
+      batch: 12
+      log2_transform: false
+      metadata_file: "data/COPD/raw/host/GSE38974_metadata.txt"
+      matrix_file:   "data/COPD/raw/host/GSE38974_series_matrix.txt"
+
+    - id: "GSE47460"
+      platform: "GPL14550"
+      batch: 13
+      log2_transform: true
+      metadata_file: "data/COPD/raw/host/GSE47460_metadata.txt"
+      matrix_file:   "data/COPD/raw/host/GSE47460_series_matrix.txt"
+
+    - id: "GSE56341"
+      platform: "GPL570"
+      batch: 14
+      log2_transform: false
+      metadata_file: "data/COPD/raw/host/GSE56341_metadata.txt"
+      matrix_file:   "data/COPD/raw/host/GSE56341_series_matrix.txt"
+
+    - id: "GSE57148"
+      platform: "GPL10558"      # Illumina HumanHT-12 v4
+      batch: 15
+      log2_transform: false
+      metadata_file: "data/COPD/raw/host/GSE57148_metadata.txt"
+      matrix_file:   "data/COPD/raw/host/GSE57148_series_matrix.txt"
+
+    - id: "GSE73395"
+      platform: "GPL570"
+      batch: 16
+      log2_transform: false
+      metadata_file: "data/COPD/raw/host/GSE73395_metadata.txt"
+      matrix_file:   "data/COPD/raw/host/GSE73395_series_matrix.txt"
+
+    - id: "GSE76925"
+      platform: "GPL570"
+      batch: 17
+      log2_transform: false
+      metadata_file: "data/COPD/raw/host/GSE76925_metadata.txt"
+      matrix_file:   "data/COPD/raw/host/GSE76925_series_matrix.txt"
+
+    - id: "GSE8581"
+      platform: "GPL96"
+      batch: 18
+      log2_transform: false
+      metadata_file: "data/COPD/raw/host/GSE8581_metadata.txt"
+      matrix_file:   "data/COPD/raw/host/GSE8581_series_matrix.txt"
+
+    - id: "GSE86064"
+      platform: "GPL570"
+      batch: 19
+      log2_transform: false
+      metadata_file: "data/COPD/raw/host/GSE86064_metadata.txt"
+      matrix_file:   "data/COPD/raw/host/GSE86064_series_matrix.txt"
+
+  # 荟萃分析参数
+  metaanalysis:
+    method: "REM"            # REM（随机效应）或 FEM（固定效应）
+    individual_method: "modt"  # 单研究统计方法：modt | t | Wilcoxon
+    nperm: 300
+    batch_correction: true
+    imputation:
+      method: "knn"          # knn | none
+      k: 10
+
+# ----------------------------------------------------------------
+# 微生物/环境侧组学配置
+# 换组学类型：将 type 改为 metatranscriptomics / metabolomics
+# ----------------------------------------------------------------
+meta_omics:
+  type: "metagenomics"
+
+  datasets:
+    - id: "SRP066375"
+      batch: 1
+      taxonomy_file: "data/COPD/raw/meta/SRP066375.taxonomy.tsv"
+      feature_file:  "data/COPD/raw/meta/SRP066375.tsv"   # PICRUSt2 EC 贡献表
+
+    - id: "SRP136124"
+      batch: 2
+      taxonomy_file: "data/COPD/raw/meta/SRP136124.taxonomy.tsv"
+      feature_file:  "data/COPD/raw/meta/SRP136124.tsv"
+
+  metaanalysis:
+    method: "REM"
+    individual_method: "modt"
+    nperm: 300
+    batch_correction: false  # 宏基因组通常不需要 ComBat
+
+# ----------------------------------------------------------------
+# 桥接数据库配置
+# 换桥接类型：将 type 改为 direct_metabolomics
+# ----------------------------------------------------------------
+bridge:
+  type: "metacyc_stitch"
+
+  metacyc_stitch:
+    stitch_confidence_threshold: 700   # STITCH 互作置信度阈值（0-1000）
+    host_species_id: "9606"            # 人类 NCBI Taxonomy ID
+    # 宿主源化合物黑名单（这些化合物由宿主产生，不计入微生物贡献）
+    human_compound_filter: "data/COPD/raw/bridge/human_cmpd_list.txt"
+
+  # 仅当 type: direct_metabolomics 时生效
+  direct_metabolomics:
+    compound_gene_database: "data/COPD/raw/bridge/hmdb_gene_interactions.tsv"
+
+# ----------------------------------------------------------------
+# EPCS（原 PRMT）整合计算配置
+# ----------------------------------------------------------------
+integration:
+  emm_source: "metacyc_stitch"    # 或 direct
+  effect_size_source: "meta_omics"
+
+# ----------------------------------------------------------------
+# 敏感性分析配置
+# ----------------------------------------------------------------
+sensitivity:
+  logo_analysis:
+    enabled: true
+    genus_list_file: "data/COPD/raw/sensitivity/genus_list.txt"
+    ec_list_file:    "data/COPD/raw/sensitivity/ec_list.txt"
+    datasets: ["SRP066375", "SRP136124"]
+
+# ----------------------------------------------------------------
+# 输出目录
+# ----------------------------------------------------------------
+output:
+  base_dir: "results/COPD"
+  save_intermediate: true
