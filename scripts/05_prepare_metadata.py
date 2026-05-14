@@ -1,0 +1,160 @@
+"""
+步骤5：从 GEO series_matrix.txt 中自动提取样本元数据
+生成流程所需的 {GSE}_metadata.txt（含 sample_id 和 condition 列）
+
+用法：python3 scripts/05_prepare_metadata.py
+      python3 scripts/05_prepare_metadata.py --datadir data/COPD/raw/host
+              --disease-keyword COPD --control-keyword normal
+
+⚠ 重要：GEO 数据集的 condition 标注格式各不相同，脚本会尽力自动识别，
+  但建议运行后人工检查每个数据集的 metadata 文件，确认 condition 列正确。
+"""
+
+import os
+import re
+import logging
+import argparse
+from pathlib import Path
+
+
+# 常见的 COPD 相关关键词（不区分大小写）
+DISEASE_KEYWORDS = ["copd", "chronic obstructive", "emphysema", "smoker with airflow"]
+CONTROL_KEYWORDS = ["control", "normal", "healthy", "non-copd", "nonsmoker", "non-smoker",
+                    "smoker without", "at-risk"]
+
+
+def parse_series_matrix_meta(filepath: Path) -> dict[str, dict]:
+    """
+    解析 series_matrix.txt 中 ! 开头的元数据行
+    返回 {sample_gsm: {field: value}} 字典
+    """
+    sample_ids = []
+    characteristics = {}   # {gsm: [characteristic strings]}
+    titles = {}            # {gsm: title}
+
+    with open(filepath, encoding="latin-1") as f:
+        for line in f:
+            line = line.rstrip("\n").replace('"', "")
+            if not line.startswith("!"):
+                continue
+
+            if line.startswith("!Sample_geo_accession"):
+                parts = line.split("\t")
+                sample_ids = parts[1:]
+
+            elif line.startswith("!Sample_title"):
+                parts = line.split("\t")
+                for i, sid in enumerate(sample_ids):
+                    titles[sid] = parts[i + 1] if i + 1 < len(parts) else ""
+
+            elif line.startswith("!Sample_characteristics_ch1"):
+                parts = line.split("\t")
+                for i, sid in enumerate(sample_ids):
+                    val = parts[i + 1] if i + 1 < len(parts) else ""
+                    characteristics.setdefault(sid, []).append(val)
+
+    return sample_ids, titles, characteristics
+
+
+def infer_condition(title: str, chars: list[str],
+                    disease_kw: list[str], control_kw: list[str]) -> str:
+    """
+    从样本标题和 characteristics 中推断 condition
+    返回 'COPD'、'Control' 或 'Unknown'
+    """
+    text = " ".join([title] + chars).lower()
+
+    for kw in disease_kw:
+        if kw.lower() in text:
+            return "COPD"
+    for kw in control_kw:
+        if kw.lower() in text:
+            return "Control"
+    return "Unknown"
+
+
+def process_dataset(matrix_file: Path, disease_kw: list[str],
+                    control_kw: list[str]) -> Path:
+    gse = matrix_file.stem.replace("_series_matrix", "")
+    outfile = matrix_file.parent / f"{gse}_metadata.txt"
+
+    if outfile.exists():
+        logging.info(f"跳过（已存在）: {gse}_metadata.txt")
+        return outfile
+
+    sample_ids, titles, chars = parse_series_matrix_meta(matrix_file)
+
+    rows = []
+    unknown_count = 0
+    for sid in sample_ids:
+        condition = infer_condition(
+            titles.get(sid, ""),
+            chars.get(sid, []),
+            disease_kw, control_kw
+        )
+        if condition == "Unknown":
+            unknown_count += 1
+        rows.append({"sample_id": sid, "condition": condition})
+
+    with open(outfile, "w") as f:
+        f.write("sample_id\tcondition\n")
+        for row in rows:
+            f.write(f"{row['sample_id']}\t{row['condition']}\n")
+
+    status = "⚠ 需检查" if unknown_count > 0 else "✓"
+    logging.info(
+        f"{status} {gse}: {len(rows)} 样本，"
+        f"COPD={sum(1 for r in rows if r['condition']=='COPD')}, "
+        f"Control={sum(1 for r in rows if r['condition']=='Control')}, "
+        f"Unknown={unknown_count}"
+    )
+
+    if unknown_count > 0:
+        logging.warning(
+            f"  {gse} 有 {unknown_count} 个样本未能自动识别 condition，"
+            f"请手动编辑 {outfile}"
+        )
+
+    return outfile
+
+
+def main():
+    parser = argparse.ArgumentParser(description="从 GEO series_matrix 提取样本元数据")
+    parser.add_argument("--datadir", default="data/COPD/raw/host")
+    parser.add_argument("--disease-keyword", nargs="+", default=DISEASE_KEYWORDS)
+    parser.add_argument("--control-keyword", nargs="+", default=CONTROL_KEYWORDS)
+    args = parser.parse_args()
+
+    datadir = Path(args.datadir)
+    Path("logs").mkdir(exist_ok=True)
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(message)s",
+        datefmt="%H:%M:%S",
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler("logs/prepare_metadata.log"),
+        ],
+    )
+
+    matrix_files = sorted(datadir.glob("*_series_matrix.txt"))
+    if not matrix_files:
+        logging.error(f"在 {datadir} 中未找到 series_matrix.txt 文件，请先运行步骤1")
+        return
+
+    logging.info(f"处理 {len(matrix_files)} 个数据集...")
+    logging.info(f"疾病关键词: {args.disease_keyword}")
+    logging.info(f"对照关键词: {args.control_keyword}")
+
+    for mf in matrix_files:
+        process_dataset(mf, args.disease_keyword, args.control_keyword)
+
+    logging.info("\n✅ 元数据提取完成")
+    logging.info("⚠  请务必检查标注为 'Unknown' 的样本，手动修改 condition 列")
+    logging.info("   condition 列的值必须与 study_config.yaml 中完全一致：")
+    logging.info("   disease_label: COPD    control_label: Control")
+
+
+if __name__ == "__main__":
+    main()
