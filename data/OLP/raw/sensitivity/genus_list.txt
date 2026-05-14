@@ -1,0 +1,15 @@
+Fusobacterium
+Leptotrichia
+Lautropia
+Prevotella
+Haemophilus
+Streptococcus
+Neisseria
+Actinomyces
+Porphyromonas
+Rothia
+Veillonella
+Capnocytophaga
+Aggregatibacter
+Lactobacillus
+Candida

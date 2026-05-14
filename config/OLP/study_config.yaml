@@ -1,0 +1,157 @@
+# ================================================================
+# 研究配置文件 — 口腔扁平苔藓（OLP）多组学荟萃分析
+# 疾病：Oral Lichen Planus（口腔扁平苔藓）
+# 宿主组学：口腔黏膜基因表达微阵列（GEO）
+# 微生物组学：口腔16S rRNA测序（SRA/BioProject）
+# ================================================================
+
+study:
+  name: "OLP"
+  description: "Multi-omic meta-analysis of oral microbiome in Oral Lichen Planus"
+  disease_label: "OLP"      # 需与各数据集 metadata 中的表型列值完全匹配
+  control_label: "Control"
+
+# ----------------------------------------------------------------
+# 宿主组学配置 — 口腔黏膜基因表达微阵列
+#
+# 数据集来源（均可从 GEO FTP 下载 series_matrix.txt）：
+#   GSE52130  Illumina HumanHT-12 V4.0 (GPL10558)
+#             7 OLP 上皮组织 vs 7 健康对照，Seoul National University
+#             参考：Vo et al. PLoS ONE 2021 (PMID 34506598)
+#
+#   GSE38616  Affymetrix Human Gene 1.0 ST Array (GPL6244)
+#             7 OLP 黏膜组织 vs 7 健康对照
+#             参考：Gong et al. Arch Oral Biol 2017 (PMID 28237528)
+#
+#   GSE23558  ⚠ 平台待核实，运行前请访问 GEO 确认 platform 字段
+#             OLP 黏膜 vs 正常对照
+#             参考：Soltaninezhad et al. Curr Pharm Des 2024 (PMID 38310566)
+#
+# 说明：样本量虽小（各7对），但三个独立研究已满足 MetaDE 最低要求。
+# 若需扩充可参考 GSE38617（同 GPL6244）、GSE70665 等。
+# ----------------------------------------------------------------
+host_omics:
+  type: "microarray"
+
+  datasets:
+    - id: "GSE52130"
+      platform: "GPL10558"      # Illumina HumanHT-12 V4.0
+      batch: 1
+      log2_transform: false     # Illumina BeadChip 数据通常已 log 变换
+      metadata_file: "data/OLP/raw/host/GSE52130_metadata.txt"
+      matrix_file:   "data/OLP/raw/host/GSE52130_series_matrix.txt"
+
+    - id: "GSE38616"
+      platform: "GPL6244"       # Affymetrix Human Gene 1.0 ST Array
+      batch: 2
+      log2_transform: false
+      metadata_file: "data/OLP/raw/host/GSE38616_metadata.txt"
+      matrix_file:   "data/OLP/raw/host/GSE38616_series_matrix.txt"
+
+    - id: "GSE23558"
+      platform: "GPL6480"       # ⚠ 待核实：访问 https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE23558
+      batch: 3
+      log2_transform: true      # Agilent 数据通常需要 log2 变换（待确认）
+      metadata_file: "data/OLP/raw/host/GSE23558_metadata.txt"
+      matrix_file:   "data/OLP/raw/host/GSE23558_series_matrix.txt"
+
+  # 生成 metadata 时使用的关键词（供 scripts/05_prepare_metadata.py 参考）
+  # 运行命令：
+  #   python3 scripts/05_prepare_metadata.py \
+  #     --datadir data/OLP/raw/host \
+  #     --disease-keyword "lichen planus" "OLP" "erosive" "non-erosive" \
+  #     --control-keyword "control" "normal" "healthy"
+  metadata_keywords:
+    disease: ["lichen planus", "OLP", "erosive"]
+    control: ["control", "normal", "healthy"]
+
+  metaanalysis:
+    method: "REM"               # 随机效应模型
+    individual_method: "modt"   # 单研究统计：modt | t | Wilcoxon
+    nperm: 300
+    batch_correction: true      # 不同平台间需要 ComBat 校正
+    imputation:
+      method: "knn"
+      k: 10
+
+# ----------------------------------------------------------------
+# 微生物侧组学配置 — 口腔16S rRNA测序
+#
+# 数据集来源（SRA/BioProject，使用 iSeq 下载原始 FASTQ）：
+#   PRJNA542018  唾液微生物 16S V4（Illumina MiSeq）
+#                20 OLP (10 侵蚀性 + 10 非侵蚀性) + 10 RAU + 10 健康对照
+#                Yu et al. BMC Microbiology 2020 (PMID 32245419)
+#                注：包含 RAU 组，下游分析中应只保留 OLP vs Control
+#
+#   PRJNA1097766 口腔微生物组 + 代谢组（16S + LC-MS）
+#                OLP 患者 vs 健康对照
+#                ⚠ 请核实样本量，确认包含足够的 OLP 和 Control 样本
+#
+# upstream_tool 选项：
+#   picrust2  — 适用于16S扩增子测序（需先经 QIIME2 DADA2 处理）
+#   humann3   — 适用于鸟枪法宏基因组测序（HUMAnN3 直接输出 EC 表）
+# ----------------------------------------------------------------
+meta_omics:
+  type: "metagenomics"
+  upstream_tool: "picrust2"     # 16S数据使用 picrust2；鸟枪法使用 humann3
+
+  datasets:
+    - id: "PRJNA542018"
+      batch: 1
+      taxonomy_file: "data/OLP/raw/meta/PRJNA542018.taxonomy.tsv"
+      feature_file:  "data/OLP/raw/meta/PRJNA542018.tsv"   # PICRUSt2 EC 贡献表
+
+    - id: "PRJNA1097766"
+      batch: 2
+      taxonomy_file: "data/OLP/raw/meta/PRJNA1097766.taxonomy.tsv"
+      feature_file:  "data/OLP/raw/meta/PRJNA1097766.tsv"
+
+  metaanalysis:
+    method: "REM"
+    individual_method: "modt"
+    nperm: 300
+    batch_correction: false     # 同一口腔部位的16S数据批效应通常较小
+
+# ----------------------------------------------------------------
+# 桥接数据库配置
+# 说明：OLP 研究也可考虑 HOMD（Human Oral Microbiome Database）
+#       作为补充或替代 MetaCyc，以获取口腔特异性代谢反应信息
+#       HOMD 桥接适配器待实现（modules/bridge/homd_stitch/）
+# ----------------------------------------------------------------
+bridge:
+  type: "metacyc_stitch"
+
+  metacyc_stitch:
+    stitch_confidence_threshold: 700
+    host_species_id: "9606"
+    human_compound_filter: "data/OLP/raw/bridge/human_cmpd_list.txt"
+
+  # 仅当 type: direct_metabolomics 时生效
+  direct_metabolomics:
+    compound_gene_database: "data/OLP/raw/bridge/hmdb_gene_interactions.tsv"
+
+# ----------------------------------------------------------------
+# EPCS 整合计算配置
+# ----------------------------------------------------------------
+integration:
+  emm_source: "metacyc_stitch"
+  effect_size_source: "meta_omics"
+
+# ----------------------------------------------------------------
+# 敏感性分析（LOGO）配置
+# OLP 相关口腔菌属参考：Fusobacterium, Leptotrichia, Lautropia,
+#   Prevotella, Haemophilus, Streptococcus, Neisseria, Actinomyces
+# ----------------------------------------------------------------
+sensitivity:
+  logo_analysis:
+    enabled: true
+    genus_list_file: "data/OLP/raw/sensitivity/genus_list.txt"
+    ec_list_file:    "data/OLP/raw/sensitivity/ec_list.txt"
+    datasets: ["PRJNA542018", "PRJNA1097766"]
+
+# ----------------------------------------------------------------
+# 输出目录
+# ----------------------------------------------------------------
+output:
+  base_dir: "results/OLP"
+  save_intermediate: true
