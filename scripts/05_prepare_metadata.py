@@ -57,29 +57,31 @@ def parse_series_matrix_meta(filepath: Path) -> dict[str, dict]:
 
 
 def infer_condition(title: str, chars: list[str],
-                    disease_kw: list[str], control_kw: list[str]) -> str:
+                    disease_kw: list[str], control_kw: list[str],
+                    disease_label: str, control_label: str) -> str:
     """
     从样本标题和 characteristics 中推断 condition
-    返回 'COPD'、'Control' 或 'Unknown'
+    返回 disease_label、control_label 或 'Unknown'
     """
     text = " ".join([title] + chars).lower()
 
     for kw in disease_kw:
         if kw.lower() in text:
-            return "COPD"
+            return disease_label
     for kw in control_kw:
         if kw.lower() in text:
-            return "Control"
+            return control_label
     return "Unknown"
 
 
 def process_dataset(matrix_file: Path, disease_kw: list[str],
-                    control_kw: list[str]) -> Path:
+                    control_kw: list[str], disease_label: str,
+                    control_label: str, force: bool = False) -> Path:
     gse = matrix_file.stem.replace("_series_matrix", "")
     outfile = matrix_file.parent / f"{gse}_metadata.txt"
 
-    if outfile.exists():
-        logging.info(f"跳过（已存在）: {gse}_metadata.txt")
+    if outfile.exists() and not force:
+        logging.info(f"跳过（已存在）: {gse}_metadata.txt  （用 --force 强制重新生成）")
         return outfile
 
     sample_ids, titles, chars = parse_series_matrix_meta(matrix_file)
@@ -90,7 +92,8 @@ def process_dataset(matrix_file: Path, disease_kw: list[str],
         condition = infer_condition(
             titles.get(sid, ""),
             chars.get(sid, []),
-            disease_kw, control_kw
+            disease_kw, control_kw,
+            disease_label, control_label
         )
         if condition == "Unknown":
             unknown_count += 1
@@ -104,8 +107,8 @@ def process_dataset(matrix_file: Path, disease_kw: list[str],
     status = "⚠ 需检查" if unknown_count > 0 else "✓"
     logging.info(
         f"{status} {gse}: {len(rows)} 样本，"
-        f"COPD={sum(1 for r in rows if r['condition']=='COPD')}, "
-        f"Control={sum(1 for r in rows if r['condition']=='Control')}, "
+        f"{disease_label}={sum(1 for r in rows if r['condition']==disease_label)}, "
+        f"{control_label}={sum(1 for r in rows if r['condition']==control_label)}, "
         f"Unknown={unknown_count}"
     )
 
@@ -123,6 +126,12 @@ def main():
     parser.add_argument("--datadir", default="data/COPD/raw/host")
     parser.add_argument("--disease-keyword", nargs="+", default=DISEASE_KEYWORDS)
     parser.add_argument("--control-keyword", nargs="+", default=CONTROL_KEYWORDS)
+    parser.add_argument("--disease-label", default="COPD",
+                        help="疾病样本的 condition 标签（默认 COPD，OLP 研究传入 OLP）")
+    parser.add_argument("--control-label", default="Control",
+                        help="对照样本的 condition 标签（默认 Control）")
+    parser.add_argument("--force", action="store_true",
+                        help="强制重新生成已存在的 metadata 文件")
     args = parser.parse_args()
 
     datadir = Path(args.datadir)
@@ -144,16 +153,17 @@ def main():
         return
 
     logging.info(f"处理 {len(matrix_files)} 个数据集...")
-    logging.info(f"疾病关键词: {args.disease_keyword}")
-    logging.info(f"对照关键词: {args.control_keyword}")
+    logging.info(f"疾病关键词: {args.disease_keyword}  → 标签: {args.disease_label}")
+    logging.info(f"对照关键词: {args.control_keyword}  → 标签: {args.control_label}")
 
     for mf in matrix_files:
-        process_dataset(mf, args.disease_keyword, args.control_keyword)
+        process_dataset(mf, args.disease_keyword, args.control_keyword,
+                        args.disease_label, args.control_label, args.force)
 
     logging.info("\n✅ 元数据提取完成")
     logging.info("⚠  请务必检查标注为 'Unknown' 的样本，手动修改 condition 列")
     logging.info("   condition 列的值必须与 study_config.yaml 中完全一致：")
-    logging.info("   disease_label: COPD    control_label: Control")
+    logging.info(f"   disease_label: {args.disease_label}    control_label: {args.control_label}")
 
 
 if __name__ == "__main__":
