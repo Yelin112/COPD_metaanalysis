@@ -34,11 +34,10 @@ study:
 # 每个数据集通过 input_type 字段单独指定处理路径
 # ----------------------------------------------------------------
 host_omics:
-  type: "mixed"
+  type: "microarray"
 
   datasets:
     - id: "GSE52130"
-      input_type: "microarray"
       platform: "GPL10558"       # Illumina HumanHT-12 V4.0
       batch: 1
       log2_transform: false      # Illumina BeadChip 数据通常已 log 变换
@@ -46,41 +45,24 @@ host_omics:
       matrix_file:   "data/OLP/raw/host/GSE52130_series_matrix.txt"
 
     - id: "GSE38616"
-      input_type: "microarray"
       platform: "GPL6244"        # Affymetrix Human Gene 1.0 ST Array
       batch: 2
       log2_transform: false
       metadata_file: "data/OLP/raw/host/GSE38616_metadata.txt"
       matrix_file:   "data/OLP/raw/host/GSE38616_series_matrix.txt"
 
-    - id: "GSE213346"
-      input_type: "counts"       # 原始 count 矩阵 → DESeq2 VST → z-score
-      batch: 3
-      metadata_file: "data/OLP/raw/host/GSE213346_metadata.txt"
-      counts_file:   "data/OLP/raw/host/GSE213346_count.txt"
-
   # metadata 提取关键词（供 scripts/05_prepare_metadata.py 参考）
-  # GSE52130 含口腔+生殖器样本，必须用 "oral lichen planus" 精确匹配
-  # 运行命令（各数据集单独运行以使用不同关键词）：
+  # GSE52130 含口腔+生殖器样本，必须用 "oral lichen planus" 精确匹配以排除生殖器 LP
+  # 已生成的 metadata 文件中 9 个生殖器样本为 Unknown，流程自动过滤
   #
+  # 重新生成命令：
   #   python3 scripts/05_prepare_metadata.py \
-  #     --matrix  data/OLP/raw/host/GSE52130_series_matrix.txt \
-  #     --output  data/OLP/raw/host/GSE52130_metadata.txt \
+  #     --datadir data/OLP/raw/host \
   #     --disease-keyword "oral lichen planus" \
-  #     --control-keyword "control oral"
-  #
-  #   python3 scripts/05_prepare_metadata.py \
-  #     --matrix  data/OLP/raw/host/GSE38616_series_matrix.txt \
-  #     --output  data/OLP/raw/host/GSE38616_metadata.txt \
-  #     --disease-keyword "oral lichen planus" \
-  #     --control-keyword "healthy"
-  #
-  #   # GSE213346 为 RNA-seq，metadata 见 GEO 补充文件或 SRA RunTable
-  #   python3 scripts/09_prepare_rnaseq_metadata.py \
-  #     --geo    GSE213346 \
-  #     --output data/OLP/raw/host/GSE213346_metadata.txt \
-  #     --disease-keyword "oral lichen planus" "OLP" \
-  #     --control-keyword "healthy" "control"
+  #     --control-keyword "control oral" \
+  #     --disease-label OLP --force
+  #   # GSE38616 的 7 个 Control 需手动修正（characteristics 写 "healthy"）：
+  #   sed -i 's/\tUnknown/\tControl/' data/OLP/raw/host/GSE38616_metadata.txt
   metadata_keywords:
     GSE52130:
       disease: ["oral lichen planus"]
@@ -88,9 +70,6 @@ host_omics:
     GSE38616:
       disease: ["oral lichen planus"]
       control: ["healthy"]
-    GSE213346:
-      disease: ["oral lichen planus", "OLP"]
-      control: ["healthy", "control"]
 
   metaanalysis:
     method: "REM"                # 随机效应模型
