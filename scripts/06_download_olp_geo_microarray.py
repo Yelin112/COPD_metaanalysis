@@ -35,7 +35,7 @@ MICROARRAY_DATASETS = [
 
 # GSE213346 GEO 补充文件（RNA-seq 原始计数矩阵）
 RNASEQ_SUPPLEMENTARY = {
-    "GSE213346": "GSE213346_raw_counts.txt.gz",
+    "GSE213346": "GSE213346_count.txt.gz",
 }
 
 GEO_FTP = "https://ftp.ncbi.nlm.nih.gov/geo/series"

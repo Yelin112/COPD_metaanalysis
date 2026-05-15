@@ -57,7 +57,7 @@ host_omics:
       input_type: "counts"       # 原始 count 矩阵 → DESeq2 VST → z-score
       batch: 3
       metadata_file: "data/OLP/raw/host/GSE213346_metadata.txt"
-      counts_file:   "data/OLP/raw/host/GSE213346_raw_counts.txt"
+      counts_file:   "data/OLP/raw/host/GSE213346_count.txt"
 
   # metadata 提取关键词（供 scripts/05_prepare_metadata.py 参考）
   # GSE52130 含口腔+生殖器样本，必须用 "oral lichen planus" 精确匹配
