@@ -1,8 +1,19 @@
 """
-宿主组学 — RNA-seq 数据处理规则（待实现）
-输入：featureCounts / HTSeq 输出的 counts 矩阵
-输出格式与 host_microarray.smk 完全相同，下游规则无感知
+宿主组学 — Bulk RNA-seq 数据处理规则
+
+输入类型（通过 datasets[].input_type 控制）：
+  counts  原始计数矩阵（featureCounts / HTSeq / STARsolo）→ DESeq2 VST → z-score
+  tpm     TPM 矩阵（Salmon / kallisto / StringTie）        → log2(x+1)  → z-score
+  fpkm    FPKM 矩阵                                        → log2(x+1)  → z-score
+
+study_config.yaml 中 RNA-seq 数据集必填字段：
+  id            数据集唯一标识（如 GSE211630）
+  batch         批次编号（整数）
+  input_type    counts | tpm | fpkm
+  counts_file   表达矩阵路径（首列=gene_id，其余列=样本）
+  metadata_file 样本元数据路径（含 sample_id 和 condition 列）
 """
+
 
 def _ds(dataset_id, field):
     for d in config["host_omics"]["datasets"]:
@@ -12,20 +23,28 @@ def _ds(dataset_id, field):
 
 
 rule rnaseq_normalize:
-    """TMM/DESeq2 VST 标准化，输出与微阵列相同的 z-score 特征矩阵"""
+    """
+    RNA-seq 标准化
+    counts   → DESeq2 VST → 列 z-score
+    tpm/fpkm → log2(x+1) → 列 z-score
+    输出格式与微阵列标准化结果一致，下游 ComBat + MetaDE 无需修改
+    """
     input:
-        counts   = lambda wc: _ds(wc.dataset, "counts_file"),
-        metadata = lambda wc: _ds(wc.dataset, "metadata_file")
+        counts_file   = lambda wc: _ds(wc.dataset, "counts_file"),
+        metadata_file = lambda wc: _ds(wc.dataset, "metadata_file"),
     output:
         f"{OUT}/processed/host/{{dataset}}_normalized.tsv"
+    params:
+        input_type = lambda wc: _ds(wc.dataset, "input_type"),
+        dataset_id = lambda wc: wc.dataset
     conda:
-        "../envs/r_metaanalysis.yaml"
+        "../envs/r_rnaseq.yaml"
     script:
         "../../modules/host/rnaseq/01_normalize.R"
 
 
 rule merge_host_datasets:
-    """合并所有 RNA-seq 数据集"""
+    """合并所有 RNA-seq 标准化矩阵，生成 all_normalized.tsv + all_metadata.tsv"""
     input:
         matrices = expand(
             f"{OUT}/processed/host/{{dataset}}_normalized.tsv",
@@ -40,4 +59,4 @@ rule merge_host_datasets:
     conda:
         "../envs/python.yaml"
     script:
-        "../../modules/host/rnaseq/02_merge_datasets.py"
+        "../../modules/host/microarray/03_merge_datasets.py"

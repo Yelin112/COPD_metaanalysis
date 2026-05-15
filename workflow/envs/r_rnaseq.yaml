@@ -1,0 +1,9 @@
+name: multiomics_rnaseq
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-base=4.3
+  - bioconductor-deseq2    # counts → VST 标准化
+  - r-data.table           # 大矩阵快速读取
