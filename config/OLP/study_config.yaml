@@ -1,7 +1,7 @@
 # ================================================================
 # 研究配置文件 — 口腔扁平苔藓（OLP）多组学荟萃分析
 # 疾病：Oral Lichen Planus（口腔扁平苔藓）
-# 宿主组学：口腔黏膜基因表达微阵列（GEO）
+# 宿主组学：微阵列 + Bulk RNA-seq（混合输入类型）
 # 微生物组学：口腔16S rRNA测序（SRA/BioProject）
 # ================================================================
 
@@ -12,64 +12,91 @@ study:
   control_label: "Control"
 
 # ----------------------------------------------------------------
-# 宿主组学配置 — 口腔黏膜基因表达微阵列
+# 宿主组学配置 — 混合输入类型（microarray + Bulk RNA-seq）
 #
-# 数据集来源（均可从 GEO FTP 下载 series_matrix.txt）：
-#   GSE52130  Illumina HumanHT-12 V4.0 (GPL10558)
-#             7 OLP 上皮组织 vs 7 健康对照，Seoul National University
-#             参考：Vo et al. PLoS ONE 2021 (PMID 34506598)
+# 数据集来源：
+#   GSE52130   Illumina HumanHT-12 V4.0 (GPL10558) — 微阵列
+#              7 口腔 OLP 上皮组织 vs 7 健康对照（注：含生殖器 LP，需过滤）
+#              Vo et al. PLoS ONE 2021 (PMID 34506598)
+#              过滤关键词：disease="oral lichen planus"，control="control oral"
 #
-#   GSE38616  Affymetrix Human Gene 1.0 ST Array (GPL6244)
-#             7 OLP 黏膜组织 vs 7 健康对照
-#             参考：Gong et al. Arch Oral Biol 2017 (PMID 28237528)
+#   GSE38616   Affymetrix Human Gene 1.0 ST Array (GPL6244) — 微阵列
+#              7 OLP 黏膜组织 vs 7 健康对照
+#              Gong et al. Arch Oral Biol 2017 (PMID 28237528)
+#              过滤关键词：disease="oral lichen planus"，control="healthy"
 #
-#   GSE23558  ⚠ 平台待核实，运行前请访问 GEO 确认 platform 字段
-#             OLP 黏膜 vs 正常对照
-#             参考：Soltaninezhad et al. Curr Pharm Des 2024 (PMID 38310566)
+#   GSE213346  Illumina NovaSeq 6000 — Bulk RNA-seq（原始 count 矩阵）
+#              40 OLP 口腔黏膜 vs 10 健康对照（最大 OLP 宿主转录组数据集）
+#              Cillo et al. eLife 2023 (PMID 37874637)，CD8+ TRM 细胞研究
+#              GEO 补充文件：GSE213346_raw_counts.txt.gz
 #
-# 说明：样本量虽小（各7对），但三个独立研究已满足 MetaDE 最低要求。
-# 若需扩充可参考 GSE38617（同 GPL6244）、GSE70665 等。
+# type: mixed 表示同一研究中包含微阵列和 RNA-seq 两种输入类型
+# 每个数据集通过 input_type 字段单独指定处理路径
 # ----------------------------------------------------------------
 host_omics:
-  type: "microarray"
+  type: "mixed"
 
   datasets:
     - id: "GSE52130"
-      platform: "GPL10558"      # Illumina HumanHT-12 V4.0
+      input_type: "microarray"
+      platform: "GPL10558"       # Illumina HumanHT-12 V4.0
       batch: 1
-      log2_transform: false     # Illumina BeadChip 数据通常已 log 变换
+      log2_transform: false      # Illumina BeadChip 数据通常已 log 变换
       metadata_file: "data/OLP/raw/host/GSE52130_metadata.txt"
       matrix_file:   "data/OLP/raw/host/GSE52130_series_matrix.txt"
 
     - id: "GSE38616"
-      platform: "GPL6244"       # Affymetrix Human Gene 1.0 ST Array
+      input_type: "microarray"
+      platform: "GPL6244"        # Affymetrix Human Gene 1.0 ST Array
       batch: 2
       log2_transform: false
       metadata_file: "data/OLP/raw/host/GSE38616_metadata.txt"
       matrix_file:   "data/OLP/raw/host/GSE38616_series_matrix.txt"
 
-    - id: "GSE23558"
-      platform: "GPL6480"       # ⚠ 待核实：访问 https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE23558
+    - id: "GSE213346"
+      input_type: "counts"       # 原始 count 矩阵 → DESeq2 VST → z-score
       batch: 3
-      log2_transform: true      # Agilent 数据通常需要 log2 变换（待确认）
-      metadata_file: "data/OLP/raw/host/GSE23558_metadata.txt"
-      matrix_file:   "data/OLP/raw/host/GSE23558_series_matrix.txt"
+      metadata_file: "data/OLP/raw/host/GSE213346_metadata.txt"
+      counts_file:   "data/OLP/raw/host/GSE213346_raw_counts.txt"
 
-  # 生成 metadata 时使用的关键词（供 scripts/05_prepare_metadata.py 参考）
-  # 运行命令：
+  # metadata 提取关键词（供 scripts/05_prepare_metadata.py 参考）
+  # GSE52130 含口腔+生殖器样本，必须用 "oral lichen planus" 精确匹配
+  # 运行命令（各数据集单独运行以使用不同关键词）：
+  #
   #   python3 scripts/05_prepare_metadata.py \
-  #     --datadir data/OLP/raw/host \
-  #     --disease-keyword "lichen planus" "OLP" "erosive" "non-erosive" \
-  #     --control-keyword "control" "normal" "healthy"
+  #     --matrix  data/OLP/raw/host/GSE52130_series_matrix.txt \
+  #     --output  data/OLP/raw/host/GSE52130_metadata.txt \
+  #     --disease-keyword "oral lichen planus" \
+  #     --control-keyword "control oral"
+  #
+  #   python3 scripts/05_prepare_metadata.py \
+  #     --matrix  data/OLP/raw/host/GSE38616_series_matrix.txt \
+  #     --output  data/OLP/raw/host/GSE38616_metadata.txt \
+  #     --disease-keyword "oral lichen planus" \
+  #     --control-keyword "healthy"
+  #
+  #   # GSE213346 为 RNA-seq，metadata 见 GEO 补充文件或 SRA RunTable
+  #   python3 scripts/09_prepare_rnaseq_metadata.py \
+  #     --geo    GSE213346 \
+  #     --output data/OLP/raw/host/GSE213346_metadata.txt \
+  #     --disease-keyword "oral lichen planus" "OLP" \
+  #     --control-keyword "healthy" "control"
   metadata_keywords:
-    disease: ["lichen planus", "OLP", "erosive"]
-    control: ["control", "normal", "healthy"]
+    GSE52130:
+      disease: ["oral lichen planus"]
+      control: ["control oral"]
+    GSE38616:
+      disease: ["oral lichen planus"]
+      control: ["healthy"]
+    GSE213346:
+      disease: ["oral lichen planus", "OLP"]
+      control: ["healthy", "control"]
 
   metaanalysis:
-    method: "REM"               # 随机效应模型
-    individual_method: "modt"   # 单研究统计：modt | t | Wilcoxon
+    method: "REM"                # 随机效应模型
+    individual_method: "modt"    # 单研究统计：modt | t | Wilcoxon
     nperm: 300
-    batch_correction: true      # 不同平台间需要 ComBat 校正
+    batch_correction: true       # 不同平台间需要 ComBat 校正
     imputation:
       method: "knn"
       k: 10
@@ -93,7 +120,7 @@ host_omics:
 # ----------------------------------------------------------------
 meta_omics:
   type: "metagenomics"
-  upstream_tool: "picrust2"     # 16S数据使用 picrust2；鸟枪法使用 humann3
+  upstream_tool: "picrust2"      # 16S数据使用 picrust2；鸟枪法使用 humann3
 
   datasets:
     - id: "PRJNA542018"
@@ -110,7 +137,7 @@ meta_omics:
     method: "REM"
     individual_method: "modt"
     nperm: 300
-    batch_correction: false     # 同一口腔部位的16S数据批效应通常较小
+    batch_correction: false      # 同一口腔部位的16S数据批效应通常较小
 
 # ----------------------------------------------------------------
 # 桥接数据库配置

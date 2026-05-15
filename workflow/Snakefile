@@ -25,6 +25,8 @@ if HOST_TYPE == "microarray":
     include: "rules/host_microarray.smk"
 elif HOST_TYPE == "rnaseq":
     include: "rules/host_rnaseq.smk"
+elif HOST_TYPE == "mixed":
+    include: "rules/host_mixed.smk"
 elif HOST_TYPE == "proteomics":
     include: "rules/host_proteomics.smk"
 elif HOST_TYPE == "methylation":
