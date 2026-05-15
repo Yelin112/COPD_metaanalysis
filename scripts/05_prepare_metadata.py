@@ -23,35 +23,40 @@ CONTROL_KEYWORDS = ["control", "normal", "healthy", "non-copd", "nonsmoker", "no
                     "smoker without", "at-risk"]
 
 
-def parse_series_matrix_meta(filepath: Path) -> dict[str, dict]:
+def parse_series_matrix_meta(filepath: Path):
     """
     解析 series_matrix.txt 中 ! 开头的元数据行
-    返回 {sample_gsm: {field: value}} 字典
+    两遍读取：第一遍获取样本ID，第二遍获取 title 和 characteristics
+    （GEO 文件中 !Sample_geo_accession 不一定在 !Sample_title 之前）
     """
-    sample_ids = []
-    characteristics = {}   # {gsm: [characteristic strings]}
-    titles = {}            # {gsm: title}
-
+    # 第一遍：只收集所有 ! 行
+    meta_lines = []
     with open(filepath, encoding="latin-1") as f:
         for line in f:
             line = line.rstrip("\n").replace('"', "")
-            if not line.startswith("!"):
-                continue
+            if line.startswith("!"):
+                meta_lines.append(line)
 
-            if line.startswith("!Sample_geo_accession"):
-                parts = line.split("\t")
-                sample_ids = parts[1:]
+    # 获取样本 ID 列表
+    sample_ids = []
+    for line in meta_lines:
+        if line.startswith("!Sample_geo_accession"):
+            sample_ids = line.split("\t")[1:]
+            break
 
-            elif line.startswith("!Sample_title"):
-                parts = line.split("\t")
-                for i, sid in enumerate(sample_ids):
-                    titles[sid] = parts[i + 1] if i + 1 < len(parts) else ""
-
-            elif line.startswith("!Sample_characteristics_ch1"):
-                parts = line.split("\t")
-                for i, sid in enumerate(sample_ids):
-                    val = parts[i + 1] if i + 1 < len(parts) else ""
-                    characteristics.setdefault(sid, []).append(val)
+    # 第二遍：按列对齐解析 title 和 characteristics
+    titles = {}
+    characteristics = {}
+    for line in meta_lines:
+        if line.startswith("!Sample_title"):
+            parts = line.split("\t")
+            for i, sid in enumerate(sample_ids):
+                titles[sid] = parts[i + 1] if i + 1 < len(parts) else ""
+        elif line.startswith("!Sample_characteristics_ch1"):
+            parts = line.split("\t")
+            for i, sid in enumerate(sample_ids):
+                val = parts[i + 1] if i + 1 < len(parts) else ""
+                characteristics.setdefault(sid, []).append(val)
 
     return sample_ids, titles, characteristics
 
