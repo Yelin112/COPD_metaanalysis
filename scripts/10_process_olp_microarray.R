@@ -23,7 +23,9 @@ if (length(missing) > 0) {
     message("安装缺失包: ", paste(missing, collapse = ", "))
     if (!requireNamespace("BiocManager", quietly = TRUE))
         install.packages("BiocManager")
-    BiocManager::install(missing, ask = FALSE)
+    # 自动匹配当前 R 版本对应的 Bioconductor 版本（R 4.4 → 3.20）
+    BiocManager::install(missing, ask = FALSE,
+                         version = BiocManager::version())
 }
 
 suppressPackageStartupMessages({
