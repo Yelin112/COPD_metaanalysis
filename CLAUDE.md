@@ -51,6 +51,7 @@
 | PRJNA542018 | SRA | 16S V4，单端（merged PE），40样本 | ✅ 已下载，待 QIIME2 |
 | CRA008410 | GSA（国内） | 16S V3-V4，双端 2×250bp | ✅ 已下载，待 QIIME2 |
 | PRJNA1201607 | SRA | 16S，待确认 | 🔄 下载中 |
+| PRJDB12280 | SRA（DDBJ） | 16S，OLP + 健康对照 | ⏳ 待筛选样本后下载 |
 
 数据位置：`data/OLP/raw/meta/{项目ID}/`
 
@@ -58,14 +59,32 @@
 
 **CRA008410 特殊说明**：引物已在上游截除，reads 固定 250bp。
 
+**PRJDB12280 特殊说明**：数据集含多个分组（OLP/Cont/HypoT/月经周期对照），需先筛选：
+- 保留：`OLP-*`、`OLP_*`、`O_OLP-*`（患者）+ `Cont-*`、`O_C_Control_*`（健康对照）
+- 排除：HypoT（甲减）、O_M0/M1_Control（月经周期相关）、来源不明的数字/字母ID
+- 筛选脚本：`scripts/14_filter_prjdb12280.py`
+
 ## 下一步待运行
 
 ```bash
+# 0. PRJDB12280 样本筛选 + 下载
+#    先从 NCBI SRA Run Selector 下载 SraRunTable.csv：
+#    https://www.ncbi.nlm.nih.gov/Traces/study/?acc=PRJDB12280
+python3 scripts/14_filter_prjdb12280.py \
+    --sra-table /path/to/SraRunTable.csv \
+    --output data/OLP/raw/meta/PRJDB12280/accession_list.txt \
+    --metadata-out data/OLP/raw/meta/PRJDB12280/metadata.tsv
+# 然后用 iSeq 按 accession list 下载：
+conda activate iseq
+iseq download --accession-list data/OLP/raw/meta/PRJDB12280/accession_list.txt \
+              --output data/OLP/raw/meta/PRJDB12280/
+
 # 1. QIIME2 处理（两个可并行）
 conda activate qiime2-amplicon-2023
 cd /home/usr/yel/exp-OLP_meta/pipeline
 nohup bash scripts/11_qiime2_PRJNA542018.sh > logs/qiime2_PRJNA542018.log 2>&1 &
 nohup bash scripts/12_qiime2_CRA008410.sh   > logs/qiime2_CRA008410.log 2>&1 &
+# PRJNA1201607 和 PRJDB12280：QIIME2 脚本待新建（需确认引物和测序类型）
 
 # 2. PICRUSt2 功能预测（QIIME2 完成后）
 conda activate picrust2
@@ -108,7 +127,8 @@ pipeline/
 │   ├── 10_process_olp_microarray.R         # 宿主转录组处理（tinyarray + AnnoProbe）
 │   ├── 11_qiime2_PRJNA542018.sh            # QIIME2：单端 V4
 │   ├── 12_qiime2_CRA008410.sh             # QIIME2：双端 V3-V4
-│   └── 13_picrust2.sh                     # PICRUSt2 功能预测
+│   ├── 13_picrust2.sh                     # PICRUSt2 功能预测
+│   └── 14_filter_prjdb12280.py            # PRJDB12280 样本筛选（OLP/Control）
 ├── data/OLP/
 │   ├── raw/host/               # 微阵列原始文件 + metadata
 │   ├── raw/meta/               # 16S FASTQ 文件
