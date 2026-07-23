@@ -83,7 +83,9 @@ def main():
         reader = csv.DictReader(fh)
         # 兼容 Run / run_accession 两种列名
         run_col   = next((c for c in reader.fieldnames if c.lower() in ("run", "run_accession")), None)
-        name_col  = next((c for c in reader.fieldnames if c.lower() in ("sample_name", "sample name")), None)
+        # 优先匹配 Sample_name（下划线，含分组名），避免误选 Sample Name（空格，biosample ID）
+        name_col  = next((c for c in reader.fieldnames if c == "Sample_name"), None) or \
+                    next((c for c in reader.fieldnames if c.lower() in ("sample_name", "sample name")), None)
         if not run_col or not name_col:
             sys.exit(f"[ERROR] 找不到 Run 或 Sample_name 列。列名：{reader.fieldnames}")
 
