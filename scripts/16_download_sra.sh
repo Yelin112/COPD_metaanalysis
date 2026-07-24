@@ -48,7 +48,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 OUTDIR="data/OLP/raw/meta/${PROJ}"
-SRA_TMP="${OUTDIR}/.sra_tmp"
 ACC_LIST="${OUTDIR}/accession_list.txt"
 
 mkdir -p "${OUTDIR}" logs
@@ -66,8 +65,6 @@ if [[ -z "${ACC_LIST_ARG}" && -z "${SRA_TABLE_ARG}" ]] && command -v iseq &>/dev
 fi
 
 # ── 情形2：按列表下载（指定子集）────────────────────────────────────
-mkdir -p "${SRA_TMP}"
-
 if [[ -n "${SRA_TABLE_ARG}" ]]; then
     # 从 SraRunTable.csv 提取 Run 列
     if [[ ! -f "${SRA_TABLE_ARG}" ]]; then
@@ -106,64 +103,12 @@ else
     exit 1
 fi
 
-TOTAL=$(grep -c . "${ACC_LIST}" || true)
-DONE=0; SKIP=0; FAIL=0
+COUNT=$(grep -c . "${ACC_LIST}" || true)
+echo "[$(date '+%H:%M:%S')] 使用 iSeq 按列表下载（${COUNT} 个）..."
 
-# ── 主下载循环：iSeq 逐条（优先）或 prefetch（备用）────────────────
-while read -r ACC; do
-    [[ -z "${ACC}" ]] && continue
-
-    # 断点续传
-    if ls "${OUTDIR}/${ACC}"*.fastq.gz 2>/dev/null | grep -q .; then
-        echo "[$(date '+%H:%M:%S')] SKIP ${ACC}（已存在）"
-        SKIP=$((SKIP + 1))
-        continue
-    fi
-
-    echo "[$(date '+%H:%M:%S')] ▶ ${ACC} 下载... [${DONE}+${SKIP}+${FAIL}/${TOTAL}]"
-
-    if command -v iseq &>/dev/null; then
-        # iSeq：支持 SRR/DRR/ERR，-g 直接输出 .fastq.gz
-        if iseq -i "${ACC}" -g -p 3 -t "${THREADS}" -o "${OUTDIR}" 2>&1; then
-            DONE=$((DONE + 1))
-            echo "[$(date '+%H:%M:%S')] ✅ ${ACC} 完成 （${DONE}/${TOTAL}）"
-            continue
-        fi
-        echo "[$(date '+%H:%M:%S')] iSeq 失败，改用 prefetch..."
-    fi
-
-    # 备用：prefetch + fasterq-dump
-    if ! prefetch "${ACC}" \
-            --output-directory "${SRA_TMP}" \
-            --max-size 50G 2>&1; then
-        echo "[$(date '+%H:%M:%S')] ❌ ${ACC} 下载失败"
-        FAIL=$((FAIL + 1)); continue
-    fi
-
-    SRA_FILE="${SRA_TMP}/${ACC}/${ACC}.sra"
-    [[ ! -f "${SRA_FILE}" ]] && SRA_FILE="${SRA_TMP}/${ACC}.sra"
-
-    if ! fasterq-dump "${SRA_FILE}" \
-            --split-files --threads "${THREADS}" \
-            --outdir "${OUTDIR}" 2>&1; then
-        echo "[$(date '+%H:%M:%S')] ❌ ${ACC} fasterq-dump 失败"
-        FAIL=$((FAIL + 1))
-        rm -rf "${SRA_TMP:?}/${ACC}" "${SRA_TMP}/${ACC}.sra"
-        continue
-    fi
-
-    for fq in "${OUTDIR}/${ACC}"*.fastq; do
-        [[ -f "${fq}" ]] && gzip "${fq}"
-    done
-    rm -rf "${SRA_TMP:?}/${ACC}" "${SRA_TMP}/${ACC}.sra"
-    DONE=$((DONE + 1))
-    echo "[$(date '+%H:%M:%S')] ✅ ${ACC} 完成 （${DONE}/${TOTAL}）"
-
-done < "${ACC_LIST}"
-
-rmdir "${SRA_TMP}" 2>/dev/null || true
+# iSeq -i 支持传入文件（每行一个 accession），-g 直接输出 .fastq.gz，断点续传由 iSeq 自身处理
+iseq -i "${ACC_LIST}" -g -p 5 -t "${THREADS}" -o "${OUTDIR}"
 
 echo ""
 echo "[$(date '+%H:%M:%S')] ── ${PROJ} 下载结束 ──"
-echo "  ✅ 成功：${DONE}  ⏭ 跳过：${SKIP}  ❌ 失败：${FAIL}"
-[[ ${FAIL} -gt 0 ]] && echo "  [提示] 有失败项，重新运行脚本即可断点续传"
+echo "  [提示] 如有失败项，重新运行脚本即可断点续传（iSeq 自动跳过已存在文件）"
