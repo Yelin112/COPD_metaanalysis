@@ -61,19 +61,42 @@ elif [[ -f "${ACC_LIST}" ]]; then
     echo "  使用缓存 accession list（$(wc -l < ${ACC_LIST}) 个）"
 
 else
-    # 自动查询项目全部 Run
-    echo "[$(date '+%H:%M:%S')] 查询 ${PROJ} 的 Run 列表（esearch）..."
-    if ! command -v esearch &>/dev/null; then
-        echo "[ERROR] esearch 未找到，请安装 NCBI E-utils 或手动提供 --accession-list"
-        exit 1
+    # 自动查询项目全部 Run：优先 esearch，备用 curl SRA API
+    echo "[$(date '+%H:%M:%S')] 查询 ${PROJ} 的 Run 列表..."
+
+    if command -v esearch &>/dev/null; then
+        esearch -db sra -query "${PROJ}[BioProject]" \
+            | efetch -format runinfo \
+            | tail -n +2 \
+            | cut -d',' -f1 \
+            | grep -v '^$' \
+            > "${ACC_LIST}"
+    else
+        echo "  esearch 不可用，改用 NCBI SRA API（curl）..."
+        # NCBI SRA API：按 BioProject 查询，最多返回 10000 条
+        curl -fsSL \
+            "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=sra&term=${PROJ}[BioProject]&retmax=10000&retmode=json" \
+            | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+ids = data['esearchresult']['idlist']
+print(f'  找到 {len(ids)} 个 SRA ID', file=sys.stderr)
+# 分批获取 Run accession
+import urllib.request, time
+batch = 200
+for i in range(0, len(ids), batch):
+    chunk = ids[i:i+batch]
+    url = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=sra&id=' + ','.join(chunk) + '&rettype=runinfo&retmode=text'
+    resp = urllib.request.urlopen(url).read().decode()
+    for line in resp.splitlines()[1:]:
+        run = line.split(',')[0].strip()
+        if run and run != 'Run':
+            print(run)
+    time.sleep(0.4)
+" > "${ACC_LIST}"
     fi
-    esearch -db sra -query "${PROJ}[BioProject]" \
-        | efetch -format runinfo \
-        | tail -n +2 \
-        | cut -d',' -f1 \
-        | grep -v '^$' \
-        > "${ACC_LIST}"
-    COUNT=$(wc -l < "${ACC_LIST}")
+
+    COUNT=$(grep -c . "${ACC_LIST}" || true)
     if [[ "${COUNT}" -eq 0 ]]; then
         echo "[ERROR] 未查询到任何 Run，请检查项目号或网络"; exit 1
     fi
