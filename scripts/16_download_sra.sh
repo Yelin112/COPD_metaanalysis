@@ -2,26 +2,33 @@
 # 通用 SRA/DDBJ 数据下载脚本（SRR/DRR/ERR 均支持）
 # 断点续传：已存在 .fastq.gz 的 accession 自动跳过
 #
+# 下载策略：
+#   全量下载（不指定列表）→ 优先用 iSeq（项目级，网络兼容性最好）
+#   指定 accession list  → 逐条 prefetch + fasterq-dump
+#   指定 SraRunTable.csv → 提取 Run 列后逐条 prefetch + fasterq-dump
+#
 # 用法：
-#   # 下载某项目全部样本
+#   # 全量下载（推荐，iSeq 自动处理）
 #   bash scripts/16_download_sra.sh PRJNA542018
 #   bash scripts/16_download_sra.sh PRJNA1049117
 #
-#   # 下载指定 accession list（每行一个 Run ID）
+#   # 下载指定子集（accession list，每行一个 Run ID）
 #   bash scripts/16_download_sra.sh PRJDB12280 \
 #       --accession-list data/OLP/raw/meta/PRJDB12280/accession_list.txt
+#
+#   # 从 SraRunTable.csv 提取全部 Run 并下载
+#   bash scripts/16_download_sra.sh PRJNA1049117 \
+#       --sra-table /path/to/SraRunTable.csv
 #
 #   # 后台运行
 #   nohup bash scripts/16_download_sra.sh PRJNA542018 \
 #       > logs/download_PRJNA542018.log 2>&1 &
-#
-# 依赖：prefetch, fasterq-dump（SRA Toolkit）；esearch/efetch（NCBI E-utils，仅全量下载时需要）
 
 set -euo pipefail
 
 # ── 参数解析 ──────────────────────────────────────────────────────
 usage() {
-    echo "用法: bash $0 <PROJECT_ID> [--accession-list <file>] [--threads <N>]"
+    echo "用法: bash $0 <PROJECT_ID> [--accession-list <file>] [--sra-table <csv>] [--threads <N>]"
     exit 1
 }
 
@@ -44,18 +51,29 @@ OUTDIR="data/OLP/raw/meta/${PROJ}"
 SRA_TMP="${OUTDIR}/.sra_tmp"
 ACC_LIST="${OUTDIR}/accession_list.txt"
 
-mkdir -p "${OUTDIR}" "${SRA_TMP}" logs
+mkdir -p "${OUTDIR}" logs
 
 echo "[$(date '+%H:%M:%S')] ── ${PROJ} 下载开始 ──"
 echo "  输出目录：${OUTDIR}  线程：${THREADS}"
 
-# ── 获取 accession list ───────────────────────────────────────────
+# ── 情形1：全量下载且 iSeq 可用 → 直接用 iSeq 项目级下载 ──────────
+if [[ -z "${ACC_LIST_ARG}" && -z "${SRA_TABLE_ARG}" ]] && command -v iseq &>/dev/null; then
+    echo "[$(date '+%H:%M:%S')] 使用 iSeq 全量下载 ${PROJ}..."
+    iseq download --project "${PROJ}" --output "${OUTDIR}" --threads "${THREADS}"
+    echo ""
+    echo "[$(date '+%H:%M:%S')] ── ${PROJ} 下载结束 ──"
+    exit 0
+fi
+
+# ── 情形2：需要按列表下载（指定子集，或 iSeq 不可用）────────────────
+mkdir -p "${SRA_TMP}"
+
 if [[ -n "${SRA_TABLE_ARG}" ]]; then
     # 从 SraRunTable.csv 提取 Run 列
     if [[ ! -f "${SRA_TABLE_ARG}" ]]; then
         echo "[ERROR] 找不到 SraRunTable.csv：${SRA_TABLE_ARG}"; exit 1
     fi
-    python3 - "${SRA_TABLE_ARG}" "${ACC_LIST}" <<'EOF'
+    python3 - "${SRA_TABLE_ARG}" "${ACC_LIST}" <<'PYEOF'
 import csv, sys
 src, dst = sys.argv[1], sys.argv[2]
 with open(src, newline="", encoding="utf-8-sig") as f:
@@ -67,72 +85,35 @@ with open(src, newline="", encoding="utf-8-sig") as f:
 with open(dst, "w") as f:
     f.write("\n".join(runs) + "\n")
 print(f"  从 CSV 提取到 {len(runs)} 个 run")
-EOF
+PYEOF
     echo "  accession list 已保存：${ACC_LIST}"
 
 elif [[ -n "${ACC_LIST_ARG}" ]]; then
-    # 用户指定的列表
     if [[ ! -f "${ACC_LIST_ARG}" ]]; then
         echo "[ERROR] 找不到 accession list：${ACC_LIST_ARG}"; exit 1
     fi
     cp "${ACC_LIST_ARG}" "${ACC_LIST}"
-    echo "  使用指定 accession list：${ACC_LIST_ARG}（$(wc -l < ${ACC_LIST}) 个）"
+    echo "  使用指定 accession list（$(wc -l < ${ACC_LIST}) 个）"
 
-elif [[ -f "${ACC_LIST}" ]]; then
-    # 已有缓存列表（上次运行生成）
+elif [[ -f "${ACC_LIST}" && $(grep -c . "${ACC_LIST}" || true) -gt 0 ]]; then
     echo "  使用缓存 accession list（$(wc -l < ${ACC_LIST}) 个）"
 
 else
-    # 自动查询项目全部 Run：优先 esearch，备用 curl SRA API
-    echo "[$(date '+%H:%M:%S')] 查询 ${PROJ} 的 Run 列表..."
-
-    if command -v esearch &>/dev/null; then
-        esearch -db sra -query "${PROJ}[BioProject]" \
-            | efetch -format runinfo \
-            | tail -n +2 \
-            | cut -d',' -f1 \
-            | grep -v '^$' \
-            > "${ACC_LIST}"
-    else
-        echo "  esearch 不可用，改用 NCBI SRA API（curl）..."
-        # NCBI SRA API：按 BioProject 查询，最多返回 10000 条
-        curl -fsSLg \
-            "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=sra&term=${PROJ}[BioProject]&retmax=10000&retmode=json" \
-            | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-ids = data['esearchresult']['idlist']
-print(f'  找到 {len(ids)} 个 SRA ID', file=sys.stderr)
-# 分批获取 Run accession
-import urllib.request, time
-batch = 200
-for i in range(0, len(ids), batch):
-    chunk = ids[i:i+batch]
-    url = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=sra&id=' + ','.join(chunk) + '&rettype=runinfo&retmode=text'
-    resp = urllib.request.urlopen(url).read().decode()
-    for line in resp.splitlines()[1:]:
-        run = line.split(',')[0].strip()
-        if run and run != 'Run':
-            print(run)
-    time.sleep(0.4)
-" > "${ACC_LIST}"
-    fi
-
-    COUNT=$(grep -c . "${ACC_LIST}" || true)
-    if [[ "${COUNT}" -eq 0 ]]; then
-        echo "[ERROR] 未查询到任何 Run，请检查项目号或网络"; exit 1
-    fi
-    echo "  共找到 ${COUNT} 个 run，已保存至 ${ACC_LIST}"
+    echo "[ERROR] iSeq 不可用，且未提供 accession list 或 SraRunTable.csv"
+    echo "  请从 NCBI SRA Run Selector 下载 SraRunTable.csv："
+    echo "  https://www.ncbi.nlm.nih.gov/Traces/study/?acc=${PROJ}"
+    echo "  然后运行：bash $0 ${PROJ} --sra-table /path/to/SraRunTable.csv"
+    exit 1
 fi
 
 TOTAL=$(grep -c . "${ACC_LIST}" || true)
 DONE=0; SKIP=0; FAIL=0
 
-# ── 主下载循环 ────────────────────────────────────────────────────
+# ── 主下载循环（prefetch + fasterq-dump）────────────────────────
 while read -r ACC; do
     [[ -z "${ACC}" ]] && continue
 
-    # 断点续传：任一 .fastq.gz 已存在则跳过
+    # 断点续传
     if ls "${OUTDIR}/${ACC}"*.fastq.gz 2>/dev/null | grep -q .; then
         echo "[$(date '+%H:%M:%S')] SKIP ${ACC}（已存在）"
         SKIP=$((SKIP + 1))
@@ -148,7 +129,6 @@ while read -r ACC; do
         FAIL=$((FAIL + 1)); continue
     fi
 
-    # prefetch 输出位置兼容：子目录或直接文件
     SRA_FILE="${SRA_TMP}/${ACC}/${ACC}.sra"
     [[ ! -f "${SRA_FILE}" ]] && SRA_FILE="${SRA_TMP}/${ACC}.sra"
 
@@ -164,7 +144,6 @@ while read -r ACC; do
         continue
     fi
 
-    # 压缩并清理 SRA 缓存
     for fq in "${OUTDIR}/${ACC}"*.fastq; do
         [[ -f "${fq}" ]] && gzip "${fq}"
     done
