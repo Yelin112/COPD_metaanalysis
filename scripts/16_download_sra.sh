@@ -74,7 +74,7 @@ else
     else
         echo "  esearch 不可用，改用 NCBI SRA API（curl）..."
         # NCBI SRA API：按 BioProject 查询，最多返回 10000 条
-        curl -fsSL \
+        curl -fsSLg \
             "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=sra&term=${PROJ}[BioProject]&retmax=10000&retmode=json" \
             | python3 -c "
 import sys, json
