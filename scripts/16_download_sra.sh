@@ -89,7 +89,8 @@ elif [[ -n "${ACC_LIST_ARG}" ]]; then
     if [[ ! -f "${ACC_LIST_ARG}" ]]; then
         echo "[ERROR] 找不到 accession list：${ACC_LIST_ARG}"; exit 1
     fi
-    cp "${ACC_LIST_ARG}" "${ACC_LIST}"
+    [[ "$(realpath "${ACC_LIST_ARG}")" != "$(realpath "${ACC_LIST}")" ]] && \
+        cp "${ACC_LIST_ARG}" "${ACC_LIST}"
     echo "  使用指定 accession list（$(wc -l < ${ACC_LIST}) 个）"
 
 elif [[ -f "${ACC_LIST}" && $(grep -c . "${ACC_LIST}" || true) -gt 0 ]]; then
