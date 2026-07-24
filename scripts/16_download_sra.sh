@@ -27,12 +27,14 @@ usage() {
 
 PROJ="${1:?$(usage)}"
 ACC_LIST_ARG=""
+SRA_TABLE_ARG=""
 THREADS=8
 
 shift
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --accession-list) ACC_LIST_ARG="$2"; shift 2 ;;
+        --sra-table)      SRA_TABLE_ARG="$2"; shift 2 ;;
         --threads)        THREADS="$2";      shift 2 ;;
         *) echo "[ERROR] 未知参数: $1"; usage ;;
     esac
@@ -48,7 +50,27 @@ echo "[$(date '+%H:%M:%S')] ── ${PROJ} 下载开始 ──"
 echo "  输出目录：${OUTDIR}  线程：${THREADS}"
 
 # ── 获取 accession list ───────────────────────────────────────────
-if [[ -n "${ACC_LIST_ARG}" ]]; then
+if [[ -n "${SRA_TABLE_ARG}" ]]; then
+    # 从 SraRunTable.csv 提取 Run 列
+    if [[ ! -f "${SRA_TABLE_ARG}" ]]; then
+        echo "[ERROR] 找不到 SraRunTable.csv：${SRA_TABLE_ARG}"; exit 1
+    fi
+    python3 - "${SRA_TABLE_ARG}" "${ACC_LIST}" <<'EOF'
+import csv, sys
+src, dst = sys.argv[1], sys.argv[2]
+with open(src, newline="", encoding="utf-8-sig") as f:
+    reader = csv.DictReader(f)
+    run_col = next((c for c in reader.fieldnames if c.lower() in ("run", "run_accession")), None)
+    if not run_col:
+        sys.exit(f"[ERROR] 找不到 Run 列，列名：{reader.fieldnames}")
+    runs = [row[run_col].strip() for row in reader if row[run_col].strip()]
+with open(dst, "w") as f:
+    f.write("\n".join(runs) + "\n")
+print(f"  从 CSV 提取到 {len(runs)} 个 run")
+EOF
+    echo "  accession list 已保存：${ACC_LIST}"
+
+elif [[ -n "${ACC_LIST_ARG}" ]]; then
     # 用户指定的列表
     if [[ ! -f "${ACC_LIST_ARG}" ]]; then
         echo "[ERROR] 找不到 accession list：${ACC_LIST_ARG}"; exit 1
