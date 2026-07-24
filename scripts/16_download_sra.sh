@@ -59,13 +59,13 @@ echo "  输出目录：${OUTDIR}  线程：${THREADS}"
 # ── 情形1：全量下载且 iSeq 可用 → 直接用 iSeq 项目级下载 ──────────
 if [[ -z "${ACC_LIST_ARG}" && -z "${SRA_TABLE_ARG}" ]] && command -v iseq &>/dev/null; then
     echo "[$(date '+%H:%M:%S')] 使用 iSeq 全量下载 ${PROJ}..."
-    iseq download --project "${PROJ}" --output "${OUTDIR}" --threads "${THREADS}"
+    iseq -i "${PROJ}" -g -p 5 -t "${THREADS}" -o "${OUTDIR}"
     echo ""
     echo "[$(date '+%H:%M:%S')] ── ${PROJ} 下载结束 ──"
     exit 0
 fi
 
-# ── 情形2：需要按列表下载（指定子集，或 iSeq 不可用）────────────────
+# ── 情形2：按列表下载（指定子集）────────────────────────────────────
 mkdir -p "${SRA_TMP}"
 
 if [[ -n "${SRA_TABLE_ARG}" ]]; then
@@ -99,7 +99,7 @@ elif [[ -f "${ACC_LIST}" && $(grep -c . "${ACC_LIST}" || true) -gt 0 ]]; then
     echo "  使用缓存 accession list（$(wc -l < ${ACC_LIST}) 个）"
 
 else
-    echo "[ERROR] iSeq 不可用，且未提供 accession list 或 SraRunTable.csv"
+    echo "[ERROR] 未提供 accession list 或 SraRunTable.csv"
     echo "  请从 NCBI SRA Run Selector 下载 SraRunTable.csv："
     echo "  https://www.ncbi.nlm.nih.gov/Traces/study/?acc=${PROJ}"
     echo "  然后运行：bash $0 ${PROJ} --sra-table /path/to/SraRunTable.csv"
@@ -109,7 +109,7 @@ fi
 TOTAL=$(grep -c . "${ACC_LIST}" || true)
 DONE=0; SKIP=0; FAIL=0
 
-# ── 主下载循环（prefetch + fasterq-dump）────────────────────────
+# ── 主下载循环：iSeq 逐条（优先）或 prefetch（备用）────────────────
 while read -r ACC; do
     [[ -z "${ACC}" ]] && continue
 
@@ -120,24 +120,32 @@ while read -r ACC; do
         continue
     fi
 
-    echo "[$(date '+%H:%M:%S')] ▶ ${ACC} prefetch... [${DONE}+${SKIP}+${FAIL}/${TOTAL}]"
+    echo "[$(date '+%H:%M:%S')] ▶ ${ACC} 下载... [${DONE}+${SKIP}+${FAIL}/${TOTAL}]"
+
+    if command -v iseq &>/dev/null; then
+        # iSeq：支持 SRR/DRR/ERR，-g 直接输出 .fastq.gz
+        if iseq -i "${ACC}" -g -p 3 -t "${THREADS}" -o "${OUTDIR}" 2>&1; then
+            DONE=$((DONE + 1))
+            echo "[$(date '+%H:%M:%S')] ✅ ${ACC} 完成 （${DONE}/${TOTAL}）"
+            continue
+        fi
+        echo "[$(date '+%H:%M:%S')] iSeq 失败，改用 prefetch..."
+    fi
+
+    # 备用：prefetch + fasterq-dump
     if ! prefetch "${ACC}" \
             --output-directory "${SRA_TMP}" \
-            --max-size 50G \
-            --progress 2>&1; then
-        echo "[$(date '+%H:%M:%S')] ❌ ${ACC} prefetch 失败"
+            --max-size 50G 2>&1; then
+        echo "[$(date '+%H:%M:%S')] ❌ ${ACC} 下载失败"
         FAIL=$((FAIL + 1)); continue
     fi
 
     SRA_FILE="${SRA_TMP}/${ACC}/${ACC}.sra"
     [[ ! -f "${SRA_FILE}" ]] && SRA_FILE="${SRA_TMP}/${ACC}.sra"
 
-    echo "[$(date '+%H:%M:%S')] ▶ ${ACC} fasterq-dump..."
     if ! fasterq-dump "${SRA_FILE}" \
-            --split-files \
-            --threads "${THREADS}" \
-            --outdir "${OUTDIR}" \
-            --progress 2>&1; then
+            --split-files --threads "${THREADS}" \
+            --outdir "${OUTDIR}" 2>&1; then
         echo "[$(date '+%H:%M:%S')] ❌ ${ACC} fasterq-dump 失败"
         FAIL=$((FAIL + 1))
         rm -rf "${SRA_TMP:?}/${ACC}" "${SRA_TMP}/${ACC}.sra"
@@ -148,7 +156,6 @@ while read -r ACC; do
         [[ -f "${fq}" ]] && gzip "${fq}"
     done
     rm -rf "${SRA_TMP:?}/${ACC}" "${SRA_TMP}/${ACC}.sra"
-
     DONE=$((DONE + 1))
     echo "[$(date '+%H:%M:%S')] ✅ ${ACC} 完成 （${DONE}/${TOTAL}）"
 
