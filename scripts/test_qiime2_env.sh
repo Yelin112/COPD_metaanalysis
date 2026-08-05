@@ -8,13 +8,10 @@
 
 set -euo pipefail
 
-# ── R 路径修复：确保 conda 环境的 R 优先于系统 R ──────────────────
-# QIIME2 DADA2 插件调用 run_dada.R，需要 conda 环境中的 R（含 optparse）
-CONDA_ENV_BIN="$(conda info --base 2>/dev/null)/envs/qiime2-amplicon-2023/bin"
-if [[ -f "${CONDA_ENV_BIN}/Rscript" ]]; then
-    export PATH="${CONDA_ENV_BIN}:${PATH}"
-fi
-unset R_LIBS R_LIBS_USER R_LIBS_SITE  # 清除可能覆盖 conda R 库路径的变量
+# 让系统 R 也能找到 conda 环境中的 R 包（如 optparse），不改变 PATH
+# QIIME2 DADA2 调用 run_dada.R 需要 optparse，但系统 R 库里没有
+CONDA_R_LIB="$(conda info --base 2>/dev/null)/envs/qiime2-amplicon-2023/lib/R/library"
+[[ -d "${CONDA_R_LIB}" ]] && export R_LIBS_SITE="${CONDA_R_LIB}"
 
 SEQDIR="/home/usr/yel/repos/EasyAmplicon/seq"
 OUTDIR="results/test_qiime2"

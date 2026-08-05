@@ -9,10 +9,9 @@
 
 set -euo pipefail
 
-# R 路径修复：确保 conda 环境 R 优先（DADA2 需要 optparse）
-_CONDA_ENV_BIN="$(conda info --base 2>/dev/null)/envs/qiime2-amplicon-2023/bin"
-[[ -f "${_CONDA_ENV_BIN}/Rscript" ]] && export PATH="${_CONDA_ENV_BIN}:${PATH}"
-unset R_LIBS R_LIBS_USER R_LIBS_SITE
+# 让系统 R 也能找到 conda 环境中的 R 包（如 optparse），不改变 PATH
+CONDA_R_LIB="$(conda info --base 2>/dev/null)/envs/qiime2-amplicon-2023/lib/R/library"
+[[ -d "${CONDA_R_LIB}" ]] && export R_LIBS_SITE="${CONDA_R_LIB}"
 
 PROJ="CRA008410"
 RAWDIR="data/OLP/raw/meta/${PROJ}"
