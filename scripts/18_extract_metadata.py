@@ -151,12 +151,16 @@ def process_ena_rows(rows, study_id, col_report_lines):
 
 
 def infer_condition_cra008410(lib_name: str, title: str) -> str:
-    """CRA008410 专用：LibraryName 前缀 OLP.N / C.N / H.N 直接编码 condition"""
-    prefix = lib_name.split(".")[0].upper() if lib_name else ""
-    if prefix == "OLP":
-        return "OLP"
-    if prefix in ("C", "H"):
-        return "Control"
+    """CRA008410 专用：OLP.N / C.N / H.N 前缀编码 condition
+    LibraryName 可能为空，此时从 Title / SampleName 取前缀。"""
+    for text in (lib_name, title):
+        if not text:
+            continue
+        prefix = text.split(".")[0].upper()
+        if prefix == "OLP":
+            return "OLP"
+        if prefix in ("C", "H"):
+            return "Control"
     return infer_condition(title)
 
 
@@ -174,8 +178,9 @@ def process_cra008410(meta_dir: Path, col_report_lines):
     fixed = DATASET_FIXED["CRA008410"]
     records = []
     for row in rows:
-        sample_title = col(row, "Title", "SampleType")
+        # LibraryName 在部分 CRA 导出文件中为空，Title/SampleName 同样含前缀
         lib_name     = col(row, "LibraryName")
+        sample_title = col(row, "Title", "SampleName", "SampleType")
         condition    = infer_condition_cra008410(lib_name, sample_title)
         biosample    = col(row, "BioSample")
         rec = {
