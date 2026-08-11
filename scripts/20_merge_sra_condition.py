@@ -21,6 +21,7 @@ SraRunTable.csv 放置规则：
   4. 同时填入 age / sex（如果 SraRunTable 有这些字段）
   5. 输出更新后的 metadata 和一份整合报告
 """
+from __future__ import annotations
 
 import argparse
 import csv

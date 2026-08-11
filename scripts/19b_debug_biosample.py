@@ -7,6 +7,7 @@
     python3 scripts/19b_debug_biosample.py SAMN11606556 SAMN11606540
     python3 scripts/19b_debug_biosample.py --from-tsv results/OLP/metadata/combined_metadata.tsv --study PRJNA542018 --n 3
 """
+from __future__ import annotations
 
 import argparse
 import sys

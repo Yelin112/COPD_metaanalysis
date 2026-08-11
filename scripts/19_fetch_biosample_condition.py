@@ -15,6 +15,7 @@ BioSample 属性查询脚本
     --delay     每次请求间隔秒数（默认 0.34，约 3 req/s，NCBI 限速）
     --email     提供给 NCBI 的联系邮箱（建议填写）
 """
+from __future__ import annotations
 
 import argparse
 import csv
