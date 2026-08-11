@@ -116,15 +116,19 @@ def infer_condition_from_attrs(attrs: dict) -> tuple[str, str]:
     # 1. 明确属性优先
     for key in CONDITION_ATTRS:
         val = attrs.get(key, "")
-        if not val:
+        if not val or val.lower() == "missing":
             continue
         cond = infer_from_text(val)
         if cond:
             return cond, f"{key}={val!r}"
 
-    # 2. 所有属性值全文搜索
+    # 2. 所有属性值全文搜索（跳过明显无关字段）
+    skip_keys = {"age", "sex", "biomaterial_provider", "collection_date",
+                 "geo_loc_name", "lat_lon", "host", "replicate", "isolate"}
     for key, val in attrs.items():
-        if key.startswith("_"):
+        if key.startswith("_") or key in skip_keys:
+            continue
+        if val.lower() == "missing":
             continue
         cond = infer_from_text(val)
         if cond:
@@ -136,6 +140,34 @@ def infer_condition_from_attrs(attrs: dict) -> tuple[str, str]:
         return title_cond, f"title={attrs['_title']!r}"
 
     return "", "no_match"
+
+
+def extract_age_sex(attrs: dict) -> tuple[str, str]:
+    """从 BioSample 属性提取 age 和 sex"""
+    age_keys = ["age", "host_age", "patient_age"]
+    sex_keys = ["sex", "gender", "host_sex"]
+
+    age = ""
+    for k in age_keys:
+        v = attrs.get(k, "")
+        if v and v.lower() not in ("missing", "not applicable", "na", ""):
+            age = v
+            break
+
+    sex = ""
+    for k in sex_keys:
+        v = attrs.get(k, "").lower()
+        if not v or v in ("missing", "not applicable", "na"):
+            continue
+        if v in ("male", "m"):
+            sex = "M"
+        elif v in ("female", "f"):
+            sex = "F"
+        else:
+            sex = v
+        break
+
+    return age, sex
 
 
 # ── 主流程 ───────────────────────────────────────────────────────────────────
@@ -197,10 +229,14 @@ def main():
 
         attrs = parse_biosample_attrs(root)
         cond, evidence = infer_condition_from_attrs(attrs)
-        biosample_cache[bio_id] = {"cond": cond, "evidence": evidence, "attrs": attrs}
+        age, sex = extract_age_sex(attrs)
+        biosample_cache[bio_id] = {"cond": cond, "evidence": evidence,
+                                   "attrs": attrs, "age": age, "sex": sex}
 
         status = cond if cond else "UNKNOWN"
-        print(f"{status:8s}  ({evidence})")
+        age_str = f"  age={age}" if age else ""
+        sex_str = f"  sex={sex}" if sex else ""
+        print(f"{status:8s}  ({evidence}){age_str}{sex_str}")
         log_lines.append(f"{bio_id}\t{status}\t{evidence}\t"
                          + "; ".join(f"{k}={v}" for k, v in list(attrs.items())[:8]
                                      if not k.startswith("_")))
@@ -215,30 +251,46 @@ def main():
         print("[dry-run] 不写入文件。")
         return
 
-    # 更新 condition 字段
-    updated = 0
+    # 更新字段：condition / age / sex
+    cond_updated = age_updated = sex_updated = 0
     still_fill = 0
     for row in rows:
-        if row.get("condition", "").strip() != "FILL_ME":
-            continue
         bio_id = row.get("biosample_id", "").strip()
         if not bio_id or bio_id not in biosample_cache:
-            still_fill += 1
+            if row.get("condition", "").strip() == "FILL_ME":
+                still_fill += 1
             continue
-        cond = biosample_cache[bio_id].get("cond", "")
-        if cond:
-            row["condition"] = cond
-            updated += 1
-        else:
-            still_fill += 1
-            # 把找到的属性值写入 notes，方便手工判断
-            attrs = biosample_cache[bio_id].get("attrs", {})
-            hints = "; ".join(
-                f"{k}={v}" for k, v in attrs.items()
-                if k in CONDITION_ATTRS and v and not k.startswith("_")
-            )
-            if hints:
-                row["notes"] = hints
+
+        cache = biosample_cache[bio_id]
+
+        # condition
+        if row.get("condition", "").strip() == "FILL_ME":
+            cond = cache.get("cond", "")
+            if cond:
+                row["condition"] = cond
+                cond_updated += 1
+            else:
+                still_fill += 1
+                # 写提示到 notes
+                attrs = cache.get("attrs", {})
+                hints = "; ".join(
+                    f"{k}={v}" for k, v in attrs.items()
+                    if k not in ("collection_date", "geo_loc_name", "lat_lon",
+                                 "host", "replicate")
+                    and v and v.lower() != "missing" and not k.startswith("_")
+                )
+                if hints:
+                    row["notes"] = hints
+
+        # age（仅在原值为 FILL_ME 时更新）
+        if row.get("age", "").strip() in ("FILL_ME", "") and cache.get("age"):
+            row["age"] = cache["age"]
+            age_updated += 1
+
+        # sex（仅在原值为 FILL_ME 时更新）
+        if row.get("sex", "").strip() in ("FILL_ME", "") and cache.get("sex"):
+            row["sex"] = cache["sex"]
+            sex_updated += 1
 
     # 写输出
     with open(args.output, "w", newline="", encoding="utf-8") as f:
@@ -252,10 +304,13 @@ def main():
         f.write("biosample_id\tcondition\tevidence\tattributes_preview\n")
         f.write("\n".join(log_lines))
 
-    print(f"\n[OK] 已更新 {updated} 条记录 → {args.output}")
+    print(f"\n[OK] → {args.output}")
+    print(f"     condition 自动填入：{cond_updated} 条")
+    print(f"     age 自动填入：      {age_updated} 条")
+    print(f"     sex 自动填入：      {sex_updated} 条")
     if still_fill > 0:
-        print(f"[!]  仍有 {still_fill} 条无法自动判断，condition 保持 FILL_ME")
-        print(f"     请查看 notes 列的属性提示，手工编辑 {args.output}")
+        print(f"\n[!]  仍有 {still_fill} 条 condition=FILL_ME，需手工标注")
+        print(f"     请查看 notes 列的属性提示，或参考论文 Supplementary Table")
     print(f"[OK] 查询日志 → {args.log}")
 
 
