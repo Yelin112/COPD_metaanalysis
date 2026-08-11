@@ -34,10 +34,10 @@ from pathlib import Path
 #   notes      : 额外备注
 #
 # 规则说明：
-#   PRJNA306560 — Title 列首字母编码
-#       H* → Control（健康对照）
-#       R* → OLP 非糜烂型（Reticular）
-#       E* → OLP 糜烂型（Erosive）
+#   PRJNA306560 — env_feature 列语义值
+#       "healthy control"      → Control
+#       "OLP with reticulate"  → OLP 非糜烂型
+#       "OLP with erosion"     → OLP 糜烂型
 #
 #   PRJNA512581 — Title 列关键词（纯 OLP 队列，无健康对照）
 #       含 Tissue  → OLP，组织活检
@@ -59,9 +59,9 @@ from pathlib import Path
 #       HC*  → Control
 #       OLP* → OLP
 #
-#   PRJNA598825 — Title 列
-#       含 OLP（包括 H-OLP）→ OLP
-#       含 H（不含 OLP）    → Control
+#   PRJNA598825 — Sample Name 列
+#       含 "oral lichen planus"（大小写不限）→ OLP
+#       含 "healthy"                         → Control
 #
 #   PRJNA690677 — Sample Alias 列
 #       含 OLP → OLP 糜烂型
@@ -89,6 +89,14 @@ def _get(row: dict, *colnames: str) -> str:
 
 
 def rule_PRJNA306560(row: dict) -> tuple[str, str, str]:
+    env = _get(row, "env_feature", "env feature", "env_biome", "Env Feature").lower()
+    if "healthy control" in env:
+        return "Control", "", ""
+    if "reticulate" in env or "reticular" in env:
+        return "OLP", "non-erosive", "reticulate OLP"
+    if "erosion" in env or "erosive" in env:
+        return "OLP", "erosive", "erosive OLP"
+    # 兜底：尝试旧的 Title 首字母规则
     title = _get(row, "Title", "title", "Library Name", "sample_title")
     prefix = title[0].upper() if title else ""
     if prefix == "H":
@@ -97,7 +105,7 @@ def rule_PRJNA306560(row: dict) -> tuple[str, str, str]:
         return "OLP", "non-erosive", "reticular OLP"
     if prefix == "E":
         return "OLP", "erosive", "erosive OLP"
-    return "FILL_ME", "", f"unrecognized title={title!r}"
+    return "FILL_ME", "", f"env_feature={env!r} title={title!r}"
 
 
 def rule_PRJNA512581(row: dict) -> tuple[str, str, str]:
@@ -149,13 +157,13 @@ def rule_PRJNA556311(row: dict) -> tuple[str, str, str]:
 
 
 def rule_PRJNA598825(row: dict) -> tuple[str, str, str]:
-    title = _get(row, "Title", "title", "Library Name", "sample_title")
-    t = title.upper()
-    if "OLP" in t:          # 包括 H-OLP
+    name = _get(row, "Sample Name", "sample_name", "SampleName",
+                "Title", "title", "Library Name").lower()
+    if "oral lichen planus" in name:
         return "OLP", "", ""
-    if "H" in t:
+    if "healthy" in name:
         return "Control", "", ""
-    return "FILL_ME", "", f"unrecognized title={title!r}"
+    return "FILL_ME", "", f"unrecognized sample_name={name!r}"
 
 
 def rule_PRJNA690677(row: dict) -> tuple[str, str, str]:
