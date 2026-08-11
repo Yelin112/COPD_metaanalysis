@@ -64,12 +64,24 @@ OUTPUT_COLS = [
 # 临床字段关键词映射（用于从 sample_title / library_name 推断 condition）
 OLP_KEYWORDS   = ["olp", "oral lichen planus", "lichen", "patient", "case"]
 CTRL_KEYWORDS  = ["control", "ctrl", "healthy", "normal", "hc"]
+# 排除规则：先于 OLP/Control 判断，匹配则标为 Exclude_*
+EXCLUDE_RULES  = [
+    (["genital", "vulvar", "penile", "vaginal", "esophageal"], "Exclude_nonoral"),
+    (["treated", "treatment", "after therapy", "post-treatment"],   "Exclude_treated"),
+    (["hypothyroid", "hypot", "hypo-t"],                            "Exclude_other_disease"),
+    (["menstrual", "menstruation", "cycle", "follicular", "luteal"],"Exclude_other_disease"),
+    (["periodontitis", "gingivitis", "caries", "cancer", "tumor"],  "Exclude_other_disease"),
+]
 
 
 def infer_condition(text: str) -> str:
     if not text:
         return "FILL_ME"
     t = text.lower()
+    # 排除规则优先
+    for keywords, label in EXCLUDE_RULES:
+        if any(k in t for k in keywords):
+            return label
     if any(k in t for k in OLP_KEYWORDS):
         return "OLP"
     if any(k in t for k in CTRL_KEYWORDS):

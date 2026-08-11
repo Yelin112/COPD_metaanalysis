@@ -37,6 +37,13 @@ CTRL_KEYWORDS = [
     "control", "ctrl", "healthy", "normal", "hc", "non-olp",
     "unaffected", "disease free", "health",
 ]
+EXCLUDE_RULES = [
+    (["genital", "vulvar", "penile", "vaginal", "esophageal"], "Exclude_nonoral"),
+    (["treated", "treatment", "after therapy", "post-treatment"],   "Exclude_treated"),
+    (["hypothyroid", "hypot", "hypo-t"],                            "Exclude_other_disease"),
+    (["menstrual", "menstruation", "cycle", "follicular", "luteal"],"Exclude_other_disease"),
+    (["periodontitis", "gingivitis", "caries", "cancer", "tumor"],  "Exclude_other_disease"),
+]
 
 # SraRunTable 中可能含分组信息的列名（优先级顺序）
 CONDITION_COLS = [
@@ -61,6 +68,9 @@ def infer_from_text(text: str) -> str:
     t = text.lower().strip()
     if t in ("missing", "not applicable", "na", "n/a", "unknown", ""):
         return ""
+    for keywords, label in EXCLUDE_RULES:
+        if any(k in t for k in keywords):
+            return label
     if any(k in t for k in OLP_KEYWORDS):
         return "OLP"
     if any(k in t for k in CTRL_KEYWORDS):

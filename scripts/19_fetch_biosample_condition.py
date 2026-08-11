@@ -35,12 +35,22 @@ CTRL_KEYWORDS = [
     "control", "ctrl", "healthy", "normal", "hc", "non-olp",
     "unaffected", "without", "disease free",
 ]
+EXCLUDE_RULES = [
+    (["genital", "vulvar", "penile", "vaginal", "esophageal"], "Exclude_nonoral"),
+    (["treated", "treatment", "after therapy", "post-treatment"],   "Exclude_treated"),
+    (["hypothyroid", "hypot", "hypo-t"],                            "Exclude_other_disease"),
+    (["menstrual", "menstruation", "cycle", "follicular", "luteal"],"Exclude_other_disease"),
+    (["periodontitis", "gingivitis", "caries", "cancer", "tumor"],  "Exclude_other_disease"),
+]
 
 
 def infer_from_text(text: str) -> str:
     if not text:
         return ""
     t = text.lower()
+    for keywords, label in EXCLUDE_RULES:
+        if any(k in t for k in keywords):
+            return label
     if any(k in t for k in OLP_KEYWORDS):
         return "OLP"
     if any(k in t for k in CTRL_KEYWORDS):
