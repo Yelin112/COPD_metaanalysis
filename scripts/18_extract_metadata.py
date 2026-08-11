@@ -138,6 +138,16 @@ def process_ena_rows(rows, study_id, col_report_lines):
     return records
 
 
+def infer_condition_cra008410(lib_name: str, title: str) -> str:
+    """CRA008410 专用：LibraryName 前缀 OLP.N / C.N / H.N 直接编码 condition"""
+    prefix = lib_name.split(".")[0].upper() if lib_name else ""
+    if prefix == "OLP":
+        return "OLP"
+    if prefix in ("C", "H"):
+        return "Control"
+    return infer_condition(title)
+
+
 def process_cra008410(meta_dir: Path, col_report_lines):
     """CRA008410：GSA 格式 CSV"""
     csv_path = meta_dir / "CRA008410" / "CRA008410.metadata.csv"
@@ -152,8 +162,9 @@ def process_cra008410(meta_dir: Path, col_report_lines):
     fixed = DATASET_FIXED["CRA008410"]
     records = []
     for row in rows:
-        sample_title = col(row, "Title", "SampleType", "LibraryName")
-        condition    = infer_condition(sample_title)
+        sample_title = col(row, "Title", "SampleType")
+        lib_name     = col(row, "LibraryName")
+        condition    = infer_condition_cra008410(lib_name, sample_title)
         biosample    = col(row, "BioSample")
         rec = {
             "sample_id":       col(row, "Run"),
@@ -168,7 +179,7 @@ def process_cra008410(meta_dir: Path, col_report_lines):
             "instrument_model":"NovaSeq 6000",
             "read_count":      "",
             "sample_title":    sample_title,
-            "library_name":    col(row, "LibraryName"),
+            "library_name":    lib_name,
             "age":             "FILL_ME",
             "sex":             "FILL_ME",
             "notes":           "",
