@@ -229,11 +229,16 @@ def process_prjdb12280(meta_dir: Path, col_report_lines):
     for row in rows:
         sid = col(row, "run_accession")
         known = cond_map.get(sid, {})
+        # 不在白名单的是 IgA-enriched / IgA-nonenriched 分选后样本，排除
+        if cond_map and sid not in cond_map:
+            condition = "Exclude_IgA_fraction"
+        else:
+            condition = known.get("condition", "FILL_ME")
         rec = {
             "sample_id":       sid,
             "study_id":        "PRJDB12280",
             "biosample_id":    known.get("biosample", col(row, "sample_accession")),
-            "condition":       known.get("condition", "FILL_ME"),
+            "condition":       condition,
             "sample_type":     fixed["sample_type"],
             "amplicon_region": fixed["amplicon_region"],
             "primers":         fixed["primers"],
