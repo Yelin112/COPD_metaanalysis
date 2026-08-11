@@ -35,8 +35,8 @@ DATASET_FIXED = {
     "PRJNA306560": {"amplicon_region": "V4",    "sample_type": "saliva",        "primers": "515F/806R"},
     "PRJNA512581": {"amplicon_region": "V1-V3_or_V3-V4", "sample_type": "swab_or_tissue", "primers": "mixed"},
     "PRJNA542018": {"amplicon_region": "V4",    "sample_type": "saliva",        "primers": "515F/806R"},
-    "PRJNA555458": {"amplicon_region": "V3-V4", "sample_type": "saliva",        "primers": "341F/806R"},
-    "PRJNA556311": {"amplicon_region": "V3-V4", "sample_type": "tissue",        "primers": "341F/806R"},
+    "PRJNA555458": {"amplicon_region": "V3-V4", "sample_type": "tissue",        "primers": "341F/806R"},
+    "PRJNA556311": {"amplicon_region": "V3-V4", "sample_type": "saliva",        "primers": "341F/806R"},
     "PRJNA598825": {"amplicon_region": "V3-V4", "sample_type": "swab",          "primers": "V3-V4_Illumina"},
     "PRJNA690677": {"amplicon_region": "V3-V4", "sample_type": "plaque_sub",    "primers": "338F/806R"},
 }
