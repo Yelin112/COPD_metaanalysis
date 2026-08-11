@@ -106,8 +106,8 @@ echo "【4】DADA2 去噪"
 if [[ "${SEQ_TYPE}" == "paired" ]]; then
     qiime dada2 denoise-paired \
         --i-demultiplexed-seqs "${OUTDIR}/demux.qza" \
-        --p-trunc-len-f 230 \
-        --p-trunc-len-r 200 \
+        --p-trunc-len-f 0 \
+        --p-trunc-len-r 0 \
         --p-trim-left-f 0 \
         --p-trim-left-r 0 \
         --p-max-ee-f 2.0 \
