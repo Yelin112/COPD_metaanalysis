@@ -205,13 +205,18 @@ RULES: dict[str, callable] = {
     "PRJNA690677":  rule_PRJNA690677,
     "PRJNA1043432": rule_PRJNA1043432,
     "PRJNA1049117": rule_PRJNA1049117,
-    # PRJNA1201607: WGS 鸟枪法，暂不处理
     # CRA008410:    已由 script 18 处理，不覆盖
     # PRJDB12280:   已由 script 14 处理，不覆盖
 }
 
 # 已完成标注、不覆盖的数据集
 DO_NOT_OVERWRITE = {"CRA008410", "PRJDB12280"}
+
+# 确定性排除的数据集（无需 SraRunTable，直接标注）
+STATIC_EXCLUDE = {
+    "PRJEB90477":   "Exclude_no_clinical_info",  # ENA 元数据无临床字段，联系作者成本高
+    "PRJNA1201607": "Exclude_WGS",               # 鸟枪法宏基因组，走独立流程
+}
 
 
 # ── 工具函数 ───────────────────────────────────────────────────────────────────
@@ -325,6 +330,12 @@ def main():
 
         # 只更新 FILL_ME（不覆盖已有的非 FILL_ME 标注）
         if row.get("condition", "").strip() != "FILL_ME":
+            continue
+
+        # 确定性排除
+        if study_id in STATIC_EXCLUDE:
+            row["condition"] = STATIC_EXCLUDE[study_id]
+            cond_updated += 1
             continue
 
         if run_id not in run_map:
