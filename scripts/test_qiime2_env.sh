@@ -139,10 +139,13 @@ echo ""
 echo "【5】分类注释（SILVA）"
 
 CLASSIFIER=""
-# 优先找已训练的区域裁剪版分类器
+SILVA_DB="/home/usr/yel/exp-16S_workflow/Qiime2/database/silva"
+# 按优先级查找分类器（区域特异性 > 全长备用）
 for f in \
-    "/home/usr/yel/exp-16S_workflow/Qiime2/database/silva/silva-138-99-classifier-515-806.qza" \
-    "/home/usr/yel/exp-16S_workflow/Qiime2/database/silva/silva-138-99-classifier.qza"; do
+    "${SILVA_DB}/silva-138-99-classifier-341-805.qza" \
+    "${SILVA_DB}/silva-138-99-515-806-nb-classifier.qza" \
+    "${SILVA_DB}/silva-138-99-classifier-515-806.qza" \
+    "${SILVA_DB}/silva-138-99-classifier.qza"; do
     if [[ -f "$f" ]]; then CLASSIFIER="$f"; break; fi
 done
 
