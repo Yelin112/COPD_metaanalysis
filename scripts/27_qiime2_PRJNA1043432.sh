@@ -59,13 +59,14 @@ qiime cutadapt trim-paired \
     --verbose 2>&1 | tail -20
 
 # Step 4: DADA2
-# V3-V4 去引物后 ~428bp；250bp reads 去引物后实际剩余约 233bp(F)/230bp(R)
-# trunc-len 必须不超过去引物后 read 长度：225+220=445 > 428+12=440 ✓
+# V3-V4 去引物后 ~428bp；250bp reads 去引物后约 233/230bp，天然 overlap ~35bp
+# ITS 样本已被 cutadapt --discard-untrimmed 过滤，filterAndTrim 空文件报警正常
+# trunc-len=0：不主动截断，由 max-ee=2.0 控制质量，避免 error matrix 拟合失败
 echo "[$(date '+%H:%M:%S')] DADA2 去噪（双端）..."
 qiime dada2 denoise-paired \
     --i-demultiplexed-seqs "${OUTDIR}/demux_trimmed.qza" \
-    --p-trunc-len-f 225 \
-    --p-trunc-len-r 220 \
+    --p-trunc-len-f 0 \
+    --p-trunc-len-r 0 \
     --p-trim-left-f 0 \
     --p-trim-left-r 0 \
     --p-max-ee-f 2.0 \
