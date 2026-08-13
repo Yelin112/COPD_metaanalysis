@@ -58,16 +58,18 @@ qiime cutadapt trim-paired \
     --verbose 2>&1 | tail -20
 
 # Step 4: DADA2
-# V3-V4 扩增子 ~465bp（去引物后 ~428bp），300bp reads 重叠约 82bp（280+230-428）
+# V3-V4 去引物后 ~428bp；300bp reads 去引物后约 283bp(F)/280bp(R)
+# 组织样本 DNA 质量偏低，trunc-len 280/230 + max-ee 2.0 过于严格（98%被过滤）
+# 改为 trunc-len 260/210（overlap=460-428=32bp ✓）+ max-ee 5.0 提升保留率
 echo "[$(date '+%H:%M:%S')] DADA2 去噪（双端）..."
 qiime dada2 denoise-paired \
     --i-demultiplexed-seqs "${OUTDIR}/demux_trimmed.qza" \
-    --p-trunc-len-f 280 \
-    --p-trunc-len-r 230 \
+    --p-trunc-len-f 260 \
+    --p-trunc-len-r 210 \
     --p-trim-left-f 0 \
     --p-trim-left-r 0 \
-    --p-max-ee-f 2.0 \
-    --p-max-ee-r 2.0 \
+    --p-max-ee-f 5.0 \
+    --p-max-ee-r 5.0 \
     --p-n-threads ${THREADS} \
     --o-table "${OUTDIR}/table.qza" \
     --o-representative-sequences "${OUTDIR}/rep-seqs.qza" \
