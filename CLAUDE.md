@@ -44,14 +44,23 @@
 处理脚本：`scripts/10_process_olp_microarray.R`（tinyarray + AnnoProbe 方案）
 运行方式：`/usr/lib/R/bin/Rscript scripts/10_process_olp_microarray.R`
 
-### 微生物组（处理中）
+### 微生物组
 
 | 数据集 | 来源 | 类型 | 状态 |
 |--------|------|------|------|
-| PRJNA542018 | SRA | 16S V4，单端（merged PE），40样本 | ✅ 已下载，待 QIIME2 |
-| CRA008410 | GSA（国内） | 16S V3-V4，双端 2×250bp | ✅ 已下载，待 QIIME2 |
-| PRJNA1201607 | SRA | 16S，待确认 | 🔄 下载中 |
-| PRJDB12280 | SRA（DDBJ） | 16S，OLP + 健康对照 | ⏳ 待筛选样本后下载 |
+| PRJNA542018 | SRA | 16S V4，单端（merged PE），40样本 | 🔄 QIIME2 运行中 |
+| CRA008410 | GSA（国内） | 16S V3-V4，双端 2×250bp | 🔄 QIIME2 运行中 |
+| PRJNA306560 | SRA | 16S V4，双端 2×251bp | 🔄 QIIME2 运行中 |
+| PRJNA555458 | SRA | 16S V3-V4，双端 2×300bp，组织 | 🔄 QIIME2 运行中 |
+| PRJNA556311 | SRA | 16S V3-V4，双端 2×300bp，唾液 | 🔄 QIIME2 运行中 |
+| PRJNA598825 | SRA | 16S V3-V4，双端 2×300bp | 🔄 QIIME2 运行中 |
+| PRJNA690677 | SRA | 16S V3-V4，双端 2×241bp | 🔄 QIIME2 运行中 |
+| PRJNA1049117 | SRA | 16S V3-V4，双端 2×250bp | 🔄 QIIME2 运行中 |
+| PRJDB12280 | SRA（DDBJ） | 16S V1-V2，双端 2×251bp | 🔄 QIIME2 运行中 |
+| PRJNA1201607 | SRA | 鸟枪法宏基因组 | ❌ 排除（需独立流程） |
+| PRJEB90477 | ENA | 16S | ❌ 排除（无临床分组信息） |
+| PRJNA512581 | SRA | 16S，单端+双端混合，两种平台 | ❌ 排除（无法统一处理） |
+| PRJNA1043432 | SRA | 16S V3-V4，双端 2×250bp | ❌ 排除（引物预先去除+质量值均一，DADA2 无法处理） |
 
 数据位置：`data/OLP/raw/meta/{项目ID}/`
 
