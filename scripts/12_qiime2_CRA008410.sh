@@ -45,15 +45,14 @@ qiime tools import \
     --output-path "${OUTDIR}/demux.qza"
 
 # ── 步骤3：DADA2 去噪（引物已截除，直接去噪）─────────────────────
-# V3-V4 amplicon ~460bp，2×250bp 双端，trunc 留足够重叠
-# --p-trunc-len-f 230：F reads 截至 230bp（末端质量下降）
-# --p-trunc-len-r 200：R reads 截至 200bp（R reads 质量略低）
-# 重叠：230+200-460=−30 → 理论重叠约 20bp（V3-V4 边界处）
+# V3-V4 amplicon 去引物后 ~428bp；reads 固定 250bp，无需 cutadapt
+# 原参数 230+200=430 - 428 = 2bp overlap < 12bp 最低要求 → 几乎全部 merge 失败
+# 修正：240+240=480 - 428 = 52bp overlap ✓，均在 250bp read 长度以内
 echo "[$(date '+%H:%M:%S')] DADA2 去噪（双端）..."
 qiime dada2 denoise-paired \
     --i-demultiplexed-seqs "${OUTDIR}/demux.qza" \
-    --p-trunc-len-f 230 \
-    --p-trunc-len-r 200 \
+    --p-trunc-len-f 240 \
+    --p-trunc-len-r 240 \
     --p-trim-left-f 0 \
     --p-trim-left-r 0 \
     --p-max-ee-f 2.0 \
