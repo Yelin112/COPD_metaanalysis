@@ -50,7 +50,7 @@
 |--------|------|------|------|
 | PRJNA542018 | SRA | 16S V4，单端（merged PE），40样本 | 🔄 QIIME2 运行中 |
 | CRA008410 | GSA（国内） | 16S V3-V4，双端 2×250bp | 🔄 QIIME2 运行中 |
-| PRJNA306560 | SRA | 16S V4，双端 2×251bp | 🔄 QIIME2 运行中 |
+| PRJNA306560 | SRA | 16S V4，双端 2×251bp | ❌ 排除（绝大多数样本缺乏515F/806R引物，cutadapt后几乎无reads） |
 | PRJNA555458 | SRA | 16S V3-V4，双端 2×300bp，组织 | 🔄 QIIME2 运行中 |
 | PRJNA556311 | SRA | 16S V3-V4，双端 2×300bp，唾液 | 🔄 QIIME2 运行中 |
 | PRJNA598825 | SRA | 16S V3-V4，双端 2×300bp | 🔄 QIIME2 运行中 |
