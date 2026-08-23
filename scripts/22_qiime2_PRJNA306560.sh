@@ -58,17 +58,18 @@ qiime cutadapt trim-paired \
     --verbose 2>&1 | tail -20
 
 # Step 4: DADA2
-# V4 扩增子 ~253bp（去引物后），251bp reads overlap 充足（230+150-253=127bp）
-# 原始 reads 开头质量偏低（Phred 16-24），max-ee 由 2.0 放宽至 5.0 提升保留率
+# V4 扩增子 ~253bp；reads 质量差（Phred 12-16 贯穿全程），截短尾部是关键
+# trunc-len-f 230→180：切掉末尾 50bp 低质量区；180+130=310 > 253+12=265 ✓
+# max-ee 5.0→10.0：进一步放宽，允许 DADA2 自身纠错处理剩余错误
 echo "[$(date '+%H:%M:%S')] DADA2 去噪（双端）..."
 qiime dada2 denoise-paired \
     --i-demultiplexed-seqs "${OUTDIR}/demux_trimmed.qza" \
-    --p-trunc-len-f 230 \
-    --p-trunc-len-r 150 \
+    --p-trunc-len-f 180 \
+    --p-trunc-len-r 130 \
     --p-trim-left-f 0 \
     --p-trim-left-r 0 \
-    --p-max-ee-f 5.0 \
-    --p-max-ee-r 5.0 \
+    --p-max-ee-f 10.0 \
+    --p-max-ee-r 10.0 \
     --p-n-threads ${THREADS} \
     --o-table "${OUTDIR}/table.qza" \
     --o-representative-sequences "${OUTDIR}/rep-seqs.qza" \
