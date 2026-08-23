@@ -46,11 +46,14 @@ qiime tools import \
     --output-path "${OUTDIR}/demux.qza"
 
 # Step 3: cutadapt
+# R2 在部分样本中含有 7bp 固定前缀（GATCGTG）位于 806R 之前（原因不明，可能是测序批次差异）
+# 使用 --p-anywhere-r 代替 --p-front-r，允许在 R2 任意位置搜索 806R，
+# 连同前缀一起截除，同时兼容无前缀的样本（806R 在第 1 位）
 echo "[$(date '+%H:%M:%S')] cutadapt 截除引物..."
 qiime cutadapt trim-paired \
     --i-demultiplexed-sequences "${OUTDIR}/demux.qza" \
     --p-front-f "${PRIMER_F}" \
-    --p-front-r "${PRIMER_R}" \
+    --p-anywhere-r "${PRIMER_R}" \
     --p-discard-untrimmed \
     --p-minimum-length 100 \
     --p-cores ${THREADS} \
@@ -58,18 +61,18 @@ qiime cutadapt trim-paired \
     --verbose 2>&1 | tail -20
 
 # Step 4: DADA2
-# V4 扩增子 ~253bp；reads 质量差（Phred 12-16 贯穿全程），截短尾部是关键
-# trunc-len-f 230→180：切掉末尾 50bp 低质量区；180+130=310 > 253+12=265 ✓
-# max-ee 5.0→10.0：进一步放宽，允许 DADA2 自身纠错处理剩余错误
+# V4 扩增子去引物后 ~253bp；R1 去515F后 ~232bp，R2 去(pad+)806R后 ~224bp
+# trunc-len 200/180：overlap = 200+180-253 = 127bp ✓；均在可用读长范围内
+# 数据质量良好（Phred 37-38，仅尾部降至 32-34），max-ee 5.0 足够
 echo "[$(date '+%H:%M:%S')] DADA2 去噪（双端）..."
 qiime dada2 denoise-paired \
     --i-demultiplexed-seqs "${OUTDIR}/demux_trimmed.qza" \
-    --p-trunc-len-f 180 \
-    --p-trunc-len-r 130 \
+    --p-trunc-len-f 200 \
+    --p-trunc-len-r 180 \
     --p-trim-left-f 0 \
     --p-trim-left-r 0 \
-    --p-max-ee-f 10.0 \
-    --p-max-ee-r 10.0 \
+    --p-max-ee-f 5.0 \
+    --p-max-ee-r 5.0 \
     --p-n-threads ${THREADS} \
     --o-table "${OUTDIR}/table.qza" \
     --o-representative-sequences "${OUTDIR}/rep-seqs.qza" \
