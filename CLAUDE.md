@@ -73,35 +73,63 @@
 - 排除：HypoT（甲减）、O_M0/M1_Control（月经周期相关）、来源不明的数字/字母ID
 - 筛选脚本：`scripts/14_filter_prjdb12280.py`
 
-## 下一步待运行
+## QIIME2 脚本说明
+
+所有数据集的 QIIME2 脚本已全部写好，路径规则：`scripts/{编号}_qiime2_{数据集ID}.sh`
+
+| 脚本 | 数据集 | 关键参数说明 |
+|------|--------|-------------|
+| `11_qiime2_PRJNA542018.sh` | PRJNA542018 | 单端，cutadapt 截除515F/806R，trunc 220，max-ee 2.0 |
+| `12_qiime2_CRA008410.sh` | CRA008410 | 双端，引物已截除跳过cutadapt，trunc 240/240，max-ee 2.0 |
+| `22_qiime2_PRJNA306560.sh` | PRJNA306560 | 双端，R2有7bp前缀用 **--p-anywhere-r**，trunc 200/180，max-ee 5.0 |
+| `23_qiime2_PRJNA555458.sh` | PRJNA555458 | 双端组织样本，trunc 260/210，max-ee 5.0 ✅已完成验证 |
+| `24_qiime2_PRJNA556311.sh` | PRJNA556311 | 双端，341F/806R，trunc 270/220，max-ee 2.0 |
+| `25_qiime2_PRJNA598825.sh` | PRJNA598825 | 双端，515F/806R，trunc 260/220，max-ee 2.0 |
+| `26_qiime2_PRJNA690677.sh` | PRJNA690677 | 双端 2×241bp，trunc 220/200，max-ee 2.0 |
+| `28_qiime2_PRJNA1049117.sh` | PRJNA1049117 | 双端 2×250bp，trunc 240/220，max-ee 2.0 |
+| `29_qiime2_PRJDB12280.sh` | PRJDB12280 | 双端 V1-V2，27F/338R，trunc 220/180，max-ee 2.0 |
+
+## 当前进度与下一步
+
+### 阶段一：QIIME2（进行中）
 
 ```bash
-# 0. PRJDB12280 样本筛选 + 下载
-#    先从 NCBI SRA Run Selector 下载 SraRunTable.csv：
-#    https://www.ncbi.nlm.nih.gov/Traces/study/?acc=PRJDB12280
-python3 scripts/14_filter_prjdb12280.py \
-    --sra-table /path/to/SraRunTable.csv \
-    --output data/OLP/raw/meta/PRJDB12280/accession_list.txt \
-    --metadata-out data/OLP/raw/meta/PRJDB12280/metadata.tsv
-# 然后用 iSeq 按 accession list 下载：
-conda activate iseq
-iseq download --accession-list data/OLP/raw/meta/PRJDB12280/accession_list.txt \
-              --output data/OLP/raw/meta/PRJDB12280/
-
-# 1. QIIME2 处理（两个可并行）
 conda activate qiime2-amplicon-2023
 cd /home/usr/yel/exp-OLP_meta/pipeline
-nohup bash scripts/11_qiime2_PRJNA542018.sh > logs/qiime2_PRJNA542018.log 2>&1 &
-nohup bash scripts/12_qiime2_CRA008410.sh   > logs/qiime2_CRA008410.log 2>&1 &
-# PRJNA1201607 和 PRJDB12280：QIIME2 脚本待新建（需确认引物和测序类型）
 
-# 2. PICRUSt2 功能预测（QIIME2 完成后）
+# 正在运行的（后台）：
+# PRJNA542018, PRJNA556311, PRJNA598825, PRJNA690677, PRJNA1049117, PRJDB12280
+
+# 需要重跑（脚本已修复）：
+rm -rf data/OLP/qiime2/CRA008410/
+nohup bash scripts/12_qiime2_CRA008410.sh > logs/qiime2_CRA008410.log 2>&1 &
+
+rm -rf data/OLP/qiime2/PRJNA306560/
+nohup bash scripts/22_qiime2_PRJNA306560.sh > logs/qiime2_PRJNA306560.log 2>&1 &
+
+# 验证所有结果（任意时刻可运行）：
+bash scripts/30_validate_qiime2.sh
+```
+
+### 阶段二：PICRUSt2（QIIME2 完成后）
+
+```bash
 conda activate picrust2
-bash scripts/13_picrust2.sh PRJNA542018
-bash scripts/13_picrust2.sh CRA008410
+cd /home/usr/yel/exp-OLP_meta/pipeline
 
-# 3. Snakemake 主流程（所有数据准备好后）
-conda activate qiime2-amplicon-2023  # 或新建 snakemake 环境
+# PRJNA555458 已完成，可以先跑：
+nohup bash scripts/13_picrust2.sh PRJNA555458 > logs/picrust2_PRJNA555458.log 2>&1 &
+
+# 其余数据集验证通过后依次运行：
+for proj in PRJNA542018 CRA008410 PRJNA306560 PRJNA556311 PRJNA598825 PRJNA690677 PRJNA1049117 PRJDB12280; do
+    nohup bash scripts/13_picrust2.sh ${proj} > logs/picrust2_${proj}.log 2>&1 &
+done
+```
+
+### 阶段三：Snakemake 主流程（所有数据准备好后）
+
+```bash
+conda activate qiime2-amplicon-2023
 snakemake --configfile config/OLP/study_config.yaml \
           --config dbconfig=config/databases.yaml \
           --cores 8 --use-conda
