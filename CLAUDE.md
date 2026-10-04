@@ -24,7 +24,7 @@
 | `iseq` | 下载 SRA/GSA/ENA 数据 |
 | `qiime2-amplicon-2023` | 16S 数据质控和去噪 |
 | `picrust2` | 功能预测（ASV → EC） |
-| `biobakery` | HUMAnN3（鸟枪法，本项目暂未用） |
+| `biobakery` | 鸟枪法：HUMAnN 3.9 + MetaPhlAn 4.2.5 + kneaddata 0.12.4 + fastp 1.3.6（python 钉 3.12）|
 
 ## 数据状态
 
@@ -44,19 +44,19 @@
 处理脚本：`scripts/10_process_olp_microarray.R`（tinyarray + AnnoProbe 方案）
 运行方式：`/usr/lib/R/bin/Rscript scripts/10_process_olp_microarray.R`
 
-### 微生物组
+### 微生物组（QIIME2 全部完成 ✅，2026-10-04 验证 8/9 通过；详细数字见 docs/项目框架与流程总结_20261004.md）
 
 | 数据集 | 来源 | 类型 | 状态 |
 |--------|------|------|------|
-| PRJNA542018 | SRA | 16S V4，单端（merged PE），40样本 | 🔄 QIIME2 运行中 |
-| CRA008410 | GSA（国内） | 16S V3-V4，双端 2×250bp | 🔄 QIIME2 运行中 |
-| PRJNA306560 | SRA | 16S V4，双端 2×251bp，唾液 | 🔄 QIIME2 重跑中（R2含7bp前缀，改用--p-anywhere-r修复） |
-| PRJNA555458 | SRA | 16S V3-V4，双端 2×300bp，组织 | 🔄 QIIME2 运行中 |
-| PRJNA556311 | SRA | 16S V3-V4，双端 2×300bp，唾液 | 🔄 QIIME2 运行中 |
-| PRJNA598825 | SRA | 16S V3-V4，双端 2×300bp | 🔄 QIIME2 运行中 |
-| PRJNA690677 | SRA | 16S V3-V4，双端 2×241bp | 🔄 QIIME2 运行中 |
-| PRJNA1049117 | SRA | 16S V3-V4，双端 2×250bp | 🔄 QIIME2 运行中 |
-| PRJDB12280 | SRA（DDBJ） | 16S V1-V2，双端 2×251bp | 🔄 QIIME2 运行中 |
+| PRJNA542018 | SRA | 16S V4，单端（merged PE），40样本 | ✅ Final 63.3% |
+| CRA008410 | GSA（国内） | 16S V3-V4，双端 2×250bp | ✅ Final 43.3% |
+| PRJNA306560 | SRA | 16S V4，双端 2×251bp，唾液 | ⚠️ 中位输入 62 reads/终表 14 reads，实质无数据，待裁定排除 |
+| PRJNA555458 | SRA | 16S V3-V4，双端 2×300bp，组织 | ✅ Final 85.1% |
+| PRJNA556311 | SRA | 16S V3-V4，双端 2×300bp，唾液 | ✅ Final 40.6% |
+| PRJNA598825 | SRA | 16S V3-V4，双端 2×300bp | ✅ Final 62.9% |
+| PRJNA690677 | SRA | 16S V3-V4，双端 2×241bp | ✅ Final 49.0% |
+| PRJNA1049117 | SRA | 16S V3-V4，双端 2×250bp | ✅ Final 51.4% |
+| PRJDB12280 | SRA（DDBJ） | 16S V1-V2，双端 2×251bp | ✅ Final 85.7% |
 | PRJNA1201607 | SRA | 鸟枪法宏基因组 | ❌ 排除（需独立流程） |
 | PRJEB90477 | ENA | 16S | ❌ 排除（无临床分组信息） |
 | PRJNA512581 | SRA | 16S，单端+双端混合，两种平台 | ❌ 排除（无法统一处理） |
@@ -73,21 +73,47 @@
 - 排除：HypoT（甲减）、O_M0/M1_Control（月经周期相关）、来源不明的数字/字母ID
 - 筛选脚本：`scripts/14_filter_prjdb12280.py`
 
-## QIIME2 脚本说明
+## QIIME2 脚本说明（config 驱动，2026-09 收敛）
 
-所有数据集的 QIIME2 脚本已全部写好，路径规则：`scripts/{编号}_qiime2_{数据集ID}.sh`
+16S 上游已收敛为 config 驱动：**参数唯一事实来源 = `config/OLP/16s_datasets.yaml`**（9 active + 4 excluded 条目，新数据集加条目即可）。
 
-| 脚本 | 数据集 | 关键参数说明 |
-|------|--------|-------------|
-| `11_qiime2_PRJNA542018.sh` | PRJNA542018 | 单端，cutadapt 截除515F/806R，trunc 220，max-ee 2.0 |
-| `12_qiime2_CRA008410.sh` | CRA008410 | 双端，引物已截除跳过cutadapt，trunc 240/240，max-ee 2.0 |
-| `22_qiime2_PRJNA306560.sh` | PRJNA306560 | 双端，R2有7bp前缀用 **--p-anywhere-r**，trunc 200/180，max-ee 5.0 |
-| `23_qiime2_PRJNA555458.sh` | PRJNA555458 | 双端组织样本，trunc 260/210，max-ee 5.0 ✅已完成验证 |
-| `24_qiime2_PRJNA556311.sh` | PRJNA556311 | 双端，341F/806R，trunc 270/220，max-ee 2.0 |
-| `25_qiime2_PRJNA598825.sh` | PRJNA598825 | 双端，515F/806R，trunc 260/220，max-ee 2.0 |
-| `26_qiime2_PRJNA690677.sh` | PRJNA690677 | 双端 2×241bp，trunc 220/200，max-ee 2.0 |
-| `28_qiime2_PRJNA1049117.sh` | PRJNA1049117 | 双端 2×250bp，trunc 240/220，max-ee 2.0 |
-| `29_qiime2_PRJDB12280.sh` | PRJDB12280 | 双端 V1-V2，27F/338R，trunc 220/180，max-ee 2.0 |
+```bash
+conda activate qiime2-amplicon-2023
+bash scripts/qiime2_16s.sh <PROJ> [--config PATH] [--dry-run]   # 去噪
+bash scripts/qiime2_merge_classify.sh [--skip-classifier-check]  # 合并+分区分类
+bash scripts/qiime2_train_classifier.sh ...                      # 区域分类器自训（V1-V2 训练中）
+bash scripts/13_picrust2.sh <PROJ>                               # 功能预测（已修 strat 表 bug）
+bash scripts/30_validate_qiime2.sh                               # 结果验证（读 config）
+```
+
+旧 per-dataset 脚本已归档 `legacy/qiime2/`（参数溯源原文）。
+
+各数据集参数速览（以 config 为准）：
+
+| 数据集 | 区域 | 关键参数 |
+|--------|------|----------|
+| PRJNA542018 | V4 | 单端 merged，515F/806R，trunc 0，max-ee 2.0 |
+| CRA008410 | V3-V4 | 引物已截除跳过 cutadapt，trunc 240/240，max-ee 2.0 |
+| PRJNA306560 | V4 | R2 有 7bp 前缀用 **--p-anywhere-r**，trunc 200/180，max-ee 5.0 |
+| PRJNA555458 | V3-V4 | 组织样本，341F/806R，trunc 260/210，max-ee 5.0 |
+| PRJNA556311 | V3-V4 | 341F/806R，trunc 280/230，max-ee 2.0 |
+| PRJNA598825 | V3-V4 | 341F/**805R**（少一个 G），trunc 280/230，max-ee 2.0 |
+| PRJNA690677 | V3-V4 | 2×241bp 短读，338F/806R，trunc 0/0，max-ee 2.0 |
+| PRJNA1049117 | V3-V4 | 343F/798R（798R 待核对原文），trunc 240/200，max-ee 2.0 |
+| PRJDB12280 | V1-V2 | 27Fmod/338R，trunc 230/160，max-ee 2.0（分类器自训中） |
+
+排除：PRJNA1043432（引物预去除+质量值均一）、PRJEB90477（无临床分组）、PRJNA1201607（WGS 走 shotgun 流程）、PRJNA512581（单双端混合双平台）。
+
+### 单细胞（GSE211630，2026-09-22 完成 ✅）
+
+用 Seurat 5 + Harmony + SingleR 分析（脚本 39-44，config/OLP/scrnaseq_gse211630.yaml 驱动）：
+
+- 57,439 细胞（92% 保留）、26 簇、9 类型（7 文献类型 + **Mast 肥大细胞** + 骨骼肌活检带入）
+- T 亚群 8 类；**核心结论：EOLP 的 CD8_Trm 中 IFNG(+2.2, p=6e-14)/IL17A(+3.95)/GZMB(+3.02)/CCL20(+3.30) 上调，
+  IL17 模块 EOLP>NEOLP p=0.02** —— 复现 eLife 2023 的 CD8 Trm 驱动 IFN-γ/IL-17 轴结论
+- 产物：results/OLP/processed/host/GSE211630/（rds checkpoint、图+表、NOTES.md；含 CellChat 1.x 环状图 16 张，脚本 47）
+- 数据坑见 NOTES.md：5/6 文件末行截断；ITGAE 缺失于 3 个样本（GEO 小面板）；EOLP/NEOLP 性别不平衡（Y 基因全部下调）
+- 局限：Normal n=1、EOLP vs NEOLP 2v3，结论标注为探索性
 
 ## 当前进度与下一步
 
@@ -107,7 +133,7 @@ nohup bash scripts/12_qiime2_CRA008410.sh > logs/qiime2_CRA008410.log 2>&1 &
 rm -rf data/OLP/qiime2/PRJNA306560/
 nohup bash scripts/22_qiime2_PRJNA306560.sh > logs/qiime2_PRJNA306560.log 2>&1 &
 
-# 验证所有结果（任意时刻可运行）：
+# 验证所有结果（2026-10-04 已修复列解析 bug 并重跑；8/9 ✅，PRJNA306560 待裁定）：
 bash scripts/30_validate_qiime2.sh
 ```
 
