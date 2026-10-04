@@ -3,10 +3,24 @@
 # 输出各数据集：样本数、输入reads、过滤率、合并率、去嵌合率、最终保留率、中位reads数
 #
 # 用法：
-#   bash scripts/30_validate_qiime2.sh
+#   bash scripts/30_validate_qiime2.sh [--config config/OLP/16s_datasets.yaml]
 
-DATASETS=(PRJNA542018 CRA008410 PRJNA306560 PRJNA555458 PRJNA556311 PRJNA598825 PRJNA690677 PRJNA1049117 PRJDB12280)
-OUTBASE="data/OLP/qiime2"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG="${SCRIPT_DIR}/../config/OLP/16s_datasets.yaml"
+[[ $# -gt 0 && "$1" == "--config" ]] && CONFIG="$2"
+
+# 从 config 读 active 数据集（单一事实来源）
+mapfile -t DATASETS < <(python3 - "${CONFIG}" <<'PYEOF'
+import sys, yaml
+cfg = yaml.safe_load(open(sys.argv[1]))
+for d in cfg["datasets"]:
+    if d.get("status") == "active":
+        print(d["id"])
+PYEOF
+)
+OUTBASE="$(python3 -c "
+import yaml
+print(yaml.safe_load(open('${CONFIG}'))['defaults']['out_dir'])")"
 
 printf "\n%-16s %5s %9s %8s %8s %9s %7s %10s\n" \
     "Dataset" "Samp" "Med_in" "Filt%" "Merge%" "Chimera%" "Final%" "Med_reads"
@@ -37,22 +51,28 @@ import sys, csv, statistics
 
 proj, ft_path, stats_path = sys.argv[1], sys.argv[2], sys.argv[3]
 
+# 按表头名取列（双端表有 merged 列，单端表没有；此前按列位置解析在两种表上都错位）
 rows = []
 with open(stats_path) as f:
+    header = None
     for line in f:
-        if line.startswith('#') or line.startswith('sample-id'):
+        if line.startswith('#q2:types'):
             continue
         parts = line.strip().split('\t')
-        if len(parts) < 6:
+        if parts and parts[0] == 'sample-id':
+            header = parts
             continue
+        if header is None or not parts:
+            continue
+        d = dict(zip(header, parts))
         try:
-            inp     = float(parts[1])
-            filt    = float(parts[2])
-            denoised= float(parts[4])
-            merged  = float(parts[5])
-            nc      = float(parts[6])
-            rows.append((inp, filt, merged, nc))
-        except (ValueError, IndexError):
+            inp  = float(d['input'])
+            filt = float(d['filtered'])
+            deno = float(d['denoised'])
+            nc   = float(d['non-chimeric'])
+            mrg  = float(d['merged']) if 'merged' in d else None   # 单端无 merged
+            rows.append((inp, filt, deno, mrg, nc))
+        except (ValueError, KeyError):
             pass
 
 if not rows:
@@ -62,10 +82,12 @@ if not rows:
 n          = len(rows)
 med_in     = statistics.median(r[0] for r in rows)
 med_filt   = statistics.median(r[1]/r[0]*100 if r[0] else 0 for r in rows)
-med_merge  = statistics.median(r[2]/r[1]*100 if r[1] else 0 for r in rows)
-med_chim   = statistics.median(r[3]/r[2]*100 if r[2] else 0 for r in rows)
-med_final  = statistics.median(r[3]/r[0]*100 if r[0] else 0 for r in rows)
-med_nc     = statistics.median(r[3] for r in rows)
+# 双端: merge% = merged/denoised, chimera% = non-chimeric/merged；单端: merge 不适用, chimera% = non-chimeric/denoised
+med_merge  = statistics.median(r[3]/r[2]*100 if (r[3] is not None and r[2]) else 100 for r in rows)
+_den       = lambda r: r[3] if (r[3] is not None and r[3] > 0) else r[2]
+med_chim   = statistics.median(r[4]/_den(r)*100 if _den(r) else 0 for r in rows)
+med_final  = statistics.median(r[4]/r[0]*100 if r[0] else 0 for r in rows)
+med_nc     = statistics.median(r[4] for r in rows)
 
 # 简单判断是否正常
 ok = med_final >= 30 and med_nc >= 500 and n >= 5

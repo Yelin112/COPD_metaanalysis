@@ -102,15 +102,51 @@ meta_omics:
   upstream_tool: "picrust2"      # 16S数据使用 picrust2；鸟枪法使用 humann3
 
   datasets:
+    # 9 个 active 16S 数据集（与 config/OLP/16s_datasets.yaml 保持一致）
     - id: "PRJNA542018"
       batch: 1
       taxonomy_file: "data/OLP/raw/meta/PRJNA542018.taxonomy.tsv"
       feature_file:  "data/OLP/raw/meta/PRJNA542018.tsv"   # PICRUSt2 EC 贡献表
 
-    - id: "PRJNA1097766"
+    - id: "CRA008410"
       batch: 2
-      taxonomy_file: "data/OLP/raw/meta/PRJNA1097766.taxonomy.tsv"
-      feature_file:  "data/OLP/raw/meta/PRJNA1097766.tsv"
+      taxonomy_file: "data/OLP/raw/meta/CRA008410.taxonomy.tsv"
+      feature_file:  "data/OLP/raw/meta/CRA008410.tsv"
+
+    - id: "PRJNA306560"
+      batch: 3
+      taxonomy_file: "data/OLP/raw/meta/PRJNA306560.taxonomy.tsv"
+      feature_file:  "data/OLP/raw/meta/PRJNA306560.tsv"
+
+    - id: "PRJNA555458"
+      batch: 4
+      taxonomy_file: "data/OLP/raw/meta/PRJNA555458.taxonomy.tsv"
+      feature_file:  "data/OLP/raw/meta/PRJNA555458.tsv"
+
+    - id: "PRJNA556311"
+      batch: 5
+      taxonomy_file: "data/OLP/raw/meta/PRJNA556311.taxonomy.tsv"
+      feature_file:  "data/OLP/raw/meta/PRJNA556311.tsv"
+
+    - id: "PRJNA598825"
+      batch: 6
+      taxonomy_file: "data/OLP/raw/meta/PRJNA598825.taxonomy.tsv"
+      feature_file:  "data/OLP/raw/meta/PRJNA598825.tsv"
+
+    - id: "PRJNA690677"
+      batch: 7
+      taxonomy_file: "data/OLP/raw/meta/PRJNA690677.taxonomy.tsv"
+      feature_file:  "data/OLP/raw/meta/PRJNA690677.tsv"
+
+    - id: "PRJNA1049117"
+      batch: 8
+      taxonomy_file: "data/OLP/raw/meta/PRJNA1049117.taxonomy.tsv"
+      feature_file:  "data/OLP/raw/meta/PRJNA1049117.tsv"
+
+    - id: "PRJDB12280"
+      batch: 9
+      taxonomy_file: "data/OLP/raw/meta/PRJDB12280.taxonomy.tsv"
+      feature_file:  "data/OLP/raw/meta/PRJDB12280.tsv"
 
   metaanalysis:
     method: "REM"
@@ -153,7 +189,7 @@ sensitivity:
     enabled: true
     genus_list_file: "data/OLP/raw/sensitivity/genus_list.txt"
     ec_list_file:    "data/OLP/raw/sensitivity/ec_list.txt"
-    datasets: ["PRJNA542018", "PRJNA1097766"]
+    datasets: ["PRJNA542018", "CRA008410", "PRJNA306560", "PRJNA555458", "PRJNA556311", "PRJNA598825", "PRJNA690677", "PRJNA1049117", "PRJDB12280"]
 
 # ----------------------------------------------------------------
 # 输出目录
