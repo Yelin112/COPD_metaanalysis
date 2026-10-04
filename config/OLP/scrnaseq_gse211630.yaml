@@ -1,0 +1,74 @@
+# GSE211630 scRNA-seq 分析配置（唯一参数来源，40-44 脚本读取）
+# 数据：OLP 口腔黏膜单细胞（eLife 2023, Qing M et al., CD8+ Trm 那篇）
+# 6 样本：2 EOLP + 3 NEOLP + 1 Normal，~62k 细胞
+# 注意：normal-1 基因集仅 12k（其余 5 样本的子集）且无 MT- 基因，QC 指标跨样本不可直接比
+
+data_dir: "data/OLP/raw/host/GSE211630"
+out_dir:  "results/OLP/processed/host/GSE211630"
+
+samples:
+  - {file: "GSM6481637_count_data-normal-1.txt.gz", id: "normal-1", condition: "Normal", group: "Normal"}
+  - {file: "GSM6481638_count_data-NEOLP-1.txt.gz",  id: "NEOLP-1",  condition: "OLP",    group: "NEOLP"}
+  - {file: "GSM6481639_count_data-NEOLP-2.txt.gz",  id: "NEOLP-2",  condition: "OLP",    group: "NEOLP"}
+  - {file: "GSM6481640_count_data-NEOLP-3.txt.gz",  id: "NEOLP-3",  condition: "OLP",    group: "NEOLP"}
+  - {file: "GSM6481641_count_data-EOLP-1.txt.gz",   id: "EOLP-1",   condition: "OLP",    group: "EOLP"}
+  - {file: "GSM6481642_count_data-EOLP-2.txt.gz",   id: "EOLP-2",   condition: "OLP",    group: "EOLP"}
+
+qc:
+  min_genes: 200
+  max_genes: 6000        # normal-1 若丢失 >30% 细胞，自动换成 3×该样本中位数
+  min_counts: 500
+  max_counts: 50000
+  max_mito: 20           # normal-1 无 MT- 基因恒为 0，属预期
+
+integration:
+  group: "sample"        # 只按样本整合，绝不能写 condition（会抹掉生物学差异）
+  n_pcs: 50
+  dims_use: 30
+  cluster_res: 0.8
+
+hvg_n: 2000
+
+singler:
+  ref: "BlueprintEncodeData"   # 覆盖免疫谱系+基质细胞系，与文献 7 类型对应
+  label: "label.main"
+
+comparisons:
+  # OLP vs Normal 用 condition 列（OLP/Normal）；EOLP vs NEOLP 用 group 列（EOLP/NEOLP）
+  - {id: "OLP_vs_Normal", col: "condition", groups: [[OLP], [Normal]]}    # 5v1，Normal n=1 只作排序参考
+  - {id: "EOLP_vs_NEOLP", col: "group",     groups: [[EOLP], [NEOLP]]}    # 2v3，探索性
+
+# 大类型 marker（41 脚本 DotPlot 验证，symbol 直查）
+major_markers:
+  TNK:          [CD3D, CD3E, NKG7, GNLY]
+  B_Plasma:     [MS4A1, CD79A, CD79B, JCHAIN, MZB1]
+  Myeloid:      [LYZ, CD68, CD14, FCGR3A, CD1C, LILRA4]
+  Epithelial:   [KRT5, KRT14, KRT13, KRT6A]
+  Fibroblast:   [COL1A1, COL3A1, DCN, PDGFRA]
+  Endothelial:  [PECAM1, VWF, CLDN5]
+  SmoothMuscle: [ACTA2, TAGLN, MYH11, DES]
+
+# T 亚群 marker（42 脚本自动命名 + DotPlot 验证）
+tcell_markers:
+  CD4:           [CD4, IL7R]
+  CD8:           [CD8A, CD8B]
+  NK:            [NKG7, GNLY, KLRD1, FCGR3A, NCAM1, TYROBP]
+  Naive:         [CCR7, SELL, TCF7, LEF1]
+  Treg:          [FOXP3, IL2RA, CTLA4, TNFRSF18]
+  Th1:           [IFNG, TBX21, CXCR3, STAT4]
+  Th17:          [IL17A, RORC, CCR6, IL23R]
+  Cytotoxic:     [GZMB, GZMK, GZMA, PRF1, FGFBP2, GNLY]
+  Trm:           [ITGAE, ITGA1, CD69, CXCR6, ZNF683, PRDM1, RUNX3]
+  Exhausted:     [PDCD1, LAG3, HAVCR2, TIGIT, TOX, ENTPD1, CXCL13]
+  Proliferating: [MKI67, TOP2A, STMN1]
+
+# 定制 T 细胞通路基因集（44 脚本 AddModuleScore，文献 curated）
+module_sets:
+  TCR:          [CD3D, CD3E, CD3G, CD247, LCK, ZAP70, LAT, FYN, ITK, VAV1, PLCG1, PRKCQ, NFATC1, NFATC2, JUN, FOS]
+  IFNg:         [IFNG, IFNGR1, IFNGR2, STAT1, JAK1, JAK2, IRF1, IRF8, GBP1, GBP2, GBP4, GBP5, CXCL9, CXCL10, CXCL11, IDO1]
+  TNFa:         [TNF, TNFRSF1A, TNFRSF1B, TNFAIP3, TRAF1, NFKB1, NFKBIA, MAP3K8, TNFSF10]
+  IL17:         [IL17A, IL17F, RORC, IL23R, CCR6, IL22, CCL20, IL26, NFKBIZ, TRAF3IP2]
+  Cytotoxicity: [GZMA, GZMB, GZMH, GZMK, PRF1, GNLY, NKG7, FASLG, IFNG]
+  Exhaustion:   [PDCD1, LAG3, HAVCR2, TIGIT, CTLA4, TOX, TOX2, ENTPD1, CXCL13, BTLA]
+  Trm:          [ITGAE, ITGA1, CD69, CXCR6, ZNF683, PRDM1, RUNX3]
+  Proliferation: [MKI67, TOP2A, STMN1, PCNA]
