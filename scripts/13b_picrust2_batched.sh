@@ -46,49 +46,72 @@ mkdir -p "${BATCH_DIR}" logs
 
 echo "[$(date '+%H:%M:%S')] ── ${PROJ} 分批 PICRUSt2 开始（batch-size=${BATCH_SIZE}）──"
 
-# ── 1. 获取全部样本 ID ─────────────────────────────────────────────
-SAMPLE_LIST="${BATCH_DIR}/all_samples.txt"
-python3 - "${TABLE}" "${SAMPLE_LIST}" <<'PYEOF'
-import sys
-from biom import load_table
-t = load_table(sys.argv[1])
-with open(sys.argv[2], "w") as f:
-    for s in t.ids(axis="sample"):
-        f.write(s + "\n")
+# ── 1. biom → TSV（CLI 纯 I/O，不走 biom Python API，绕开 numpy 2.x _get_ids bug）
+TSV_FULL="${BATCH_DIR}/table_full.tsv"
+if [[ ! -f "${TSV_FULL}" ]]; then
+    echo "[$(date '+%H:%M:%S')] biom → TSV..."
+    biom convert -i "${TABLE}" -o "${TSV_FULL}" --to-tsv
+fi
+
+# ── 2. 按样本列切割 TSV → 每批一个 TSV + biom ────────────────────
+echo "[$(date '+%H:%M:%S')] 按列拆分（纯 Python，无 biom/numpy 依赖）..."
+python3 - "${TSV_FULL}" "${BATCH_DIR}" "${BATCH_SIZE}" <<'PYEOF'
+import sys, math, os
+
+tsv_path, outdir, bs = sys.argv[1], sys.argv[2], int(sys.argv[3])
+
+with open(tsv_path) as f:
+    comment = f.readline()             # "# Constructed from biom file\n"
+    header  = f.readline().rstrip("\n").split("\t")  # ['#OTU ID', s1, s2, ...]
+    rows    = [line.rstrip("\n").split("\t") for line in f if line.strip()]
+
+samples = header[1:]
+n_batch = math.ceil(len(samples) / bs)
+
+for i in range(n_batch):
+    chunk   = samples[i*bs : (i+1)*bs]
+    col_idx = [1 + samples.index(s) for s in chunk]
+    out_tsv = os.path.join(outdir, f"batch_{i:02d}.tsv")
+    out_smp = os.path.join(outdir, f"batch_{i:02d}_samples.txt")
+
+    if not os.path.exists(out_tsv):
+        with open(out_tsv, "w") as f:
+            f.write(comment)
+            f.write("\t".join([header[0]] + chunk) + "\n")
+            for row in rows:
+                vals = [row[j] if j < len(row) else "0.0" for j in col_idx]
+                if any(v not in ("0.0", "0") for v in vals):
+                    f.write("\t".join([row[0]] + vals) + "\n")
+
+    with open(out_smp, "w") as f:
+        f.write("\n".join(chunk) + "\n")
+
+    print(f"batch_{i:02d}: {len(chunk)} 样本 → {out_tsv}")
 PYEOF
 
-N_SAMPLES=$(wc -l < "${SAMPLE_LIST}")
+# ── 3. 每批 TSV → biom（CLI 纯 I/O）────────────────────────────────
+for batch_tsv in "${BATCH_DIR}"/batch_*.tsv; do
+    BNAME=$(basename "${batch_tsv}" .tsv)
+    BIOM_BATCH="${BATCH_DIR}/${BNAME}.biom"
+    if [[ ! -f "${BIOM_BATCH}" ]]; then
+        echo "[$(date '+%H:%M:%S')] TSV → biom: ${BNAME}..."
+        biom convert -i "${batch_tsv}" -o "${BIOM_BATCH}" \
+            --table-type="OTU table" --to-hdf5
+    fi
+done
+
+N_SAMPLES=$(python3 -c "
+import sys
+with open('${TSV_FULL}') as f:
+    f.readline(); h = f.readline().split('\t')
+print(len(h) - 1)
+")
 echo "  总样本数：${N_SAMPLES}，每批：${BATCH_SIZE}"
 
-# ── 2. 拆分 biom 并逐批运行 ───────────────────────────────────────
-python3 - "${SAMPLE_LIST}" "${BATCH_SIZE}" "${BATCH_DIR}" <<'PYEOF'
-import sys, math
-samples = open(sys.argv[1]).read().splitlines()
-bs      = int(sys.argv[2])
-outdir  = sys.argv[3]
-n_batch = math.ceil(len(samples) / bs)
-for i in range(n_batch):
-    chunk = samples[i*bs:(i+1)*bs]
-    with open(f"{outdir}/batch_{i:02d}_samples.txt", "w") as f:
-        f.write("\n".join(chunk) + "\n")
-    print(f"batch_{i:02d}: {len(chunk)} 样本")
-PYEOF
-
 BATCH_EC_FILES=()
-for batch_samples in "${BATCH_DIR}"/batch_*_samples.txt; do
-    BNAME=$(basename "${batch_samples}" _samples.txt)
-    BIOM_BATCH="${BATCH_DIR}/${BNAME}.biom"
+for BIOM_BATCH in "${BATCH_DIR}"/batch_*.biom; do
+    BNAME=$(basename "${BIOM_BATCH}" .biom)
     BATCH_OUT="${BATCH_DIR}/${BNAME}_picrust2"
-
-    # 子集 biom
-    if [[ ! -f "${BIOM_BATCH}" ]]; then
-        echo "[$(date '+%H:%M:%S')] 拆分 ${BNAME}..."
-        biom subset-table \
-            -i "${TABLE}" \
-            -a sample \
-            -s "${batch_samples}" \
-            -o "${BIOM_BATCH}"
-    fi
 
     # 跑 picrust2（跳过已完成的批次）
     EC_STRAT="${BATCH_OUT}/EC_metagenome_out/pred_metagenome_strat.tsv.gz"
