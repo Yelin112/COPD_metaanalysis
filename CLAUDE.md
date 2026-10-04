@@ -52,6 +52,20 @@
 
 **探针注释缓存**：AnnoProbe 下载的 `.rda` 文件缓存在运行目录（`GPL10558_bioc.rda`、`GPL6244_bioc.rda`），首次运行后无需重新下载。
 
+### ComBat + MetaDE（scripts/31，2026-10-04 完成 ✅）
+
+运行：`/usr/lib/R/bin/Rscript scripts/31_combat_metaDE_host.R`
+
+**结果**：
+- 公共基因 18,156 个；FDR < 0.05 差异基因 **220 个**（前列：C9ORF24、EIF1、NME2、TUFM、EEF2）
+- ComBat 验证：校正前 PC1 R²=1.00（批次主导）→ 校正后批次 R²=0.00、disease PC1 R²=0.38（✅ 有效）
+- 输出：`results/OLP/processed/host/metaDE/`（Meta.RDS / metaFDR/Zval/Pval.txt / pca_combat.pdf）
+
+**已知注意事项**：
+- 样本列名带研究前缀（`GSE52130.GSM1260095`），下游读 metaDE 输出时需处理
+- FDR 有并列值（nperm=300 + 2 个研究，置换粒度粗，属正常）
+- **MetaDE 已从 CRAN 下架**，安装命令：`remotes::install_github("cran/MetaDE")`；bnstruct、sva 用 `pak::pak()` 安装
+
 ### 单细胞（GSE211630，2026-09-22 完成 ✅）
 
 用 Seurat 5 + Harmony + SingleR 分析（脚本 39-44，`config/OLP/scrnaseq_gse211630.yaml` 驱动）：
