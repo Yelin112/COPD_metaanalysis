@@ -82,7 +82,7 @@
 |--------|------|------|------|
 | PRJNA542018 | SRA | 16S V4，单端（merged PE），40样本 | ✅ Final 63.3%，中位 11,280 reads |
 | CRA008410 | GSA（国内） | 16S V3-V4，双端 2×250bp | ✅ Final 43.3%，中位 34,493 reads |
-| PRJNA306560 | SRA | 16S V4，双端 2×251bp，唾液 | ⚠️ 中位输入 62 reads/终表 14 reads，实质无数据，**待裁定排除** |
+| PRJNA306560 | SRA | 16S V4，双端 2×251bp，唾液 | ❌ 排除（原始中位 62 reads，终表 14 reads，实质无数据）|
 | PRJNA555458 | SRA | 16S V3-V4，双端 2×300bp，组织 | ✅ Final 85.1%，中位 13,878 reads |
 | PRJNA556311 | SRA | 16S V3-V4，双端 2×300bp，唾液 | ✅ Final 40.6%，中位 29,742 reads |
 | PRJNA598825 | SRA | 16S V3-V4，双端 2×300bp | ✅ Final 62.9%，中位 60,764 reads |
