@@ -15,3 +15,17 @@ __pycache__/
 *.Rhistory
 *.RData
 .Rproj.user/
+
+# 本地数据/缓存/临时（2026-10-04）
+data/OLP/qiime2/
+data/OLP/picrust2/
+data/OLP/shotgun/
+data/OLP/raw/
+data/platform_mappings/
+logs/
+nohup.out
+wget-log
+Rplots.pdf
+fifo_map.mapout.txt
+GPL*_bioc.rda
+silva-*.qza
