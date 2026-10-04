@@ -1,0 +1,146 @@
+# 16S 上游流程数据集注册表（单一事实来源）
+# 消费方：scripts/qiime2_16s.sh、scripts/qiime2_merge_classify.sh、scripts/30_validate_qiime2.sh
+#
+# 复制到新 16S 项目：改 defaults.raw_dir / out_dir、classifiers 路径、datasets 条目即用
+# 参数值以本项目旧 per-dataset 脚本（已归档 legacy/qiime2/）为 ground truth
+
+defaults:
+  threads: 8
+  raw_dir: "data/OLP/raw/meta"        # FASTQ 位于 {raw_dir}/{id}/
+  out_dir: "data/OLP/qiime2"
+  picrust2_dir: "data/OLP/picrust2"   # PICRUSt2 中间输出
+  min_length: 100                     # cutadapt --p-minimum-length
+  trim_left: 0                        # DADA2 --p-trim-left（单/双端共用）
+  manifest_format: "Phred33V2"
+
+classifiers:                          # 按 amplicon_region 选取
+  V4:    "/home/usr/yel/exp-16S_workflow/Qiime2/database/silva/silva-138-99-515-806-nb-classifier.qza"
+  V3-V4: "/home/usr/yel/exp-16S_workflow/Qiime2/database/silva/silva-138-99-classifier-341-805.qza"
+  V1-V2: "/home/usr/yel/exp-16S_workflow/Qiime2/database/silva/silva-138-99-classifier-27f-338r.qza"  # 需自训：bash scripts/qiime2_train_classifier.sh
+
+datasets:
+  # ── 形态1：单端（merged PE），cutadapt mode=single ──
+  - id: "PRJNA542018"
+    description: "唾液 V4，单端 merged（MiSeq，长度可变 43-558bp），515F/806R 需截除"
+    status: "active"
+    amplicon_region: "V4"
+    layout: "single"
+    read_glob: "SRR*.fastq.gz"
+    sample_suffix: ".fastq.gz"
+    r2_suffix: null
+    primers: {fwd: "GTGYCAGCMGCCGCGGTAA", rev: "GGACTACNVGGGTWTCTAAT"}   # 515F / 806R
+    cutadapt: {enabled: true, mode: "single"}
+    dada2: {trunc_len: 0, max_ee: 2.0}       # merged reads 长度可变，不截断
+
+  # ── 形态2：双端，无 cutadapt（引物已截除）──
+  - id: "CRA008410"
+    description: "V3-V4，双端 2×250，引物已在上游截除（GSA 提交）"
+    status: "active"
+    amplicon_region: "V3-V4"
+    layout: "paired"
+    read_glob: "CRR*_f1.fq.gz"
+    sample_suffix: "_f1.fq.gz"
+    r2_suffix: "_r2.fq.gz"
+    primers: null
+    cutadapt: {enabled: false}
+    dada2: {trunc_len_f: 240, trunc_len_r: 240, max_ee_f: 2.0, max_ee_r: 2.0}  # 230/200 时 overlap 不足 12bp 合并率 3%，改 240/240
+
+  # ── 形态3：双端，R2 有 7bp 前缀 → anywhere-r 特例 ──
+  - id: "PRJNA306560"
+    description: "V4，双端 2×251，唾液；R2 部分样本含 7bp 前缀"
+    status: "excluded"
+    exclude_reason: "原始数据中位仅 62 reads（终表 14 reads），实质无数据"
+
+  # ── 形态4：双端，普通 front+front ──
+  - id: "PRJNA555458"
+    description: "V3-V4，双端 2×300，组织样本 DNA 质量偏低"
+    status: "active"
+    amplicon_region: "V3-V4"
+    layout: "paired"
+    read_glob: "SRR*_1.fastq.gz"
+    sample_suffix: "_1.fastq.gz"
+    r2_suffix: "_2.fastq.gz"
+    primers: {fwd: "CCTACGGGNGGCWGCAG", rev: "GGACTACNVGGGTWTCTAAT"}     # 341F / 806R
+    cutadapt: {enabled: true, mode: "paired-front"}
+    dada2: {trunc_len_f: 260, trunc_len_r: 210, max_ee_f: 5.0, max_ee_r: 5.0}  # 原 280/230+2.0 过滤掉 98%，放宽
+
+  - id: "PRJNA556311"
+    description: "V3-V4，双端 2×300，唾液，标准参数"
+    status: "active"
+    amplicon_region: "V3-V4"
+    layout: "paired"
+    read_glob: "SRR*_1.fastq.gz"
+    sample_suffix: "_1.fastq.gz"
+    r2_suffix: "_2.fastq.gz"
+    primers: {fwd: "CCTACGGGNGGCWGCAG", rev: "GGACTACNVGGGTWTCTAAT"}     # 341F / 806R
+    cutadapt: {enabled: true, mode: "paired-front"}
+    dada2: {trunc_len_f: 280, trunc_len_r: 230, max_ee_f: 2.0, max_ee_r: 2.0}
+
+  - id: "PRJNA598825"
+    description: "V3-V4，双端 2×300"
+    status: "active"
+    amplicon_region: "V3-V4"
+    layout: "paired"
+    read_glob: "SRR*_1.fastq.gz"
+    sample_suffix: "_1.fastq.gz"
+    r2_suffix: "_2.fastq.gz"
+    primers: {fwd: "CCTACGGGNGGCWGCAG", rev: "GACTACNVGGGTWTCTAAT"}      # 341F / 805R（比 806R 少一个前导 G）
+    cutadapt: {enabled: true, mode: "paired-front"}
+    dada2: {trunc_len_f: 280, trunc_len_r: 230, max_ee_f: 2.0, max_ee_r: 2.0}
+
+  - id: "PRJNA690677"
+    description: "V3-V4，双端 2×241 短读"
+    status: "active"
+    amplicon_region: "V3-V4"
+    layout: "paired"
+    read_glob: "SRR*_1.fastq.gz"
+    sample_suffix: "_1.fastq.gz"
+    r2_suffix: "_2.fastq.gz"
+    primers: {fwd: "ACTCCTACGGGAGGCAGCAG", rev: "GGACTACNVGGGTWTCTAAT"}  # 338F / 806R
+    cutadapt: {enabled: true, mode: "paired-front"}
+    dada2: {trunc_len_f: 0, trunc_len_r: 0, max_ee_f: 2.0, max_ee_r: 2.0}  # 短读不截断，保留全部重叠
+
+  - id: "PRJNA1049117"
+    description: "V3-V4，双端 2×250"
+    status: "active"
+    amplicon_region: "V3-V4"
+    layout: "paired"
+    read_glob: "SRR*_1.fastq.gz"
+    sample_suffix: "_1.fastq.gz"
+    r2_suffix: "_2.fastq.gz"
+    primers: {fwd: "TACGGRAGGCAGCAG", rev: "AGGGTATCTAATCCT"}            # 343F / 798R（798R 请核对原文）
+    cutadapt: {enabled: true, mode: "paired-front"}
+    dada2: {trunc_len_f: 240, trunc_len_r: 200, max_ee_f: 2.0, max_ee_r: 2.0}  # overlap 仅 12bp，最低可用值
+
+  - id: "PRJDB12280"
+    description: "V1-V2，双端 2×251（DDBJ，DRR 命名；样本已用 14_filter_prjdb12280.py 筛选）"
+    status: "active"
+    amplicon_region: "V1-V2"
+    layout: "paired"
+    read_glob: "DRR*_1.fastq.gz"
+    sample_suffix: "_1.fastq.gz"
+    r2_suffix: "_2.fastq.gz"
+    primers: {fwd: "AGRGTTYGATYMTGGCTCAG", rev: "TGCTGCCTCCCGTAGGAGT"}   # 27Fmod / 338R
+    cutadapt: {enabled: true, mode: "paired-front"}
+    dada2: {trunc_len_f: 230, trunc_len_r: 160, max_ee_f: 2.0, max_ee_r: 2.0}
+
+  # ── 形态5：excluded（只需 4 个字段，文案与 21_apply_dataset_rules.py 的 STATIC_EXCLUDE 一致）──
+  - id: "PRJNA1043432"
+    description: "V3-V4，双端 2×250"
+    status: "excluded"
+    exclude_reason: "引物已预先去除且质量值均一(Phred30)，DADA2 无法处理"
+
+  - id: "PRJEB90477"
+    description: "ENA，16S"
+    status: "excluded"
+    exclude_reason: "无任何临床分组信息"
+
+  - id: "PRJNA1201607"
+    description: "鸟枪法宏基因组（WGS）"
+    status: "excluded"
+    exclude_reason: "WGS 走独立流程（scripts/32_run_shotgun_pipeline.sh）"
+
+  - id: "PRJNA512581"
+    description: "16S，单端+双端混合"
+    status: "excluded"
+    exclude_reason: "单双端混合、两种测序平台、扩增区域混杂（V1-V3+V3-V4），无法统一处理"

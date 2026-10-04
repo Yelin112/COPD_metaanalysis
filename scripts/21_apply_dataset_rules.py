@@ -226,6 +226,7 @@ STATIC_EXCLUDE = {
     "PRJNA1201607": "Exclude_WGS",               # 鸟枪法宏基因组，走独立流程
     "PRJNA1043432": "Exclude_preprocessed",      # 引物已预先去除且质量值均一(Phred30)，DADA2 无法处理
     "PRJNA512581":  "Exclude_mixed_platform",    # 单端+双端混合、两种测序平台，无法统一处理
+    "PRJNA306560":  "Exclude_insufficient_reads", # 原始数据中位仅 62 reads（终表 14 reads），实质无数据
 }
 
 
